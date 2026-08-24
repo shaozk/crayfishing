@@ -1,0 +1,70 @@
+/* ===== 钓小龙虾 样式 ===== */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: linear-gradient(180deg, #1a2a3a 0%, #2c5f3a 100%);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #fff;
+  overflow: hidden;
+  user-select: none;
+}
+h1 {
+  font-size: 28px;
+  margin-bottom: 10px;
+  text-shadow: 0 2px 8px rgba(0,0,0,.5);
+  letter-spacing: 4px;
+}
+#hud {
+  display: flex;
+  gap: 30px;
+  margin-bottom: 10px;
+  font-size: 18px;
+  font-weight: bold;
+  background: rgba(0,0,0,.35);
+  padding: 8px 22px;
+  border-radius: 30px;
+  backdrop-filter: blur(4px);
+}
+#hud span { color: #ffd966; }
+#stage { position: relative; }
+canvas {
+  display: block;
+  border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(0,0,0,.55);
+  cursor: crosshair;
+}
+#overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 25, 18, .78);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  backdrop-filter: blur(3px);
+  z-index: 5;
+}
+#overlay.hidden { display: none; }
+#overlay h2 { font-size: 34px; letter-spacing: 6px; }
+#overlay p { font-size: 16px; opacity: .9; line-height: 1.9; text-align: center; }
+button {
+  font-size: 18px;
+  padding: 10px 34px;
+  border: none;
+  border-radius: 30px;
+  background: linear-gradient(180deg, #ff8c42, #e05f1a);
+  color: #fff;
+  font-weight: bold;
+  cursor: pointer;
+  letter-spacing: 2px;
+  box-shadow: 0 4px 14px rgba(224,95,26,.5);
+  transition: transform .12s;
+}
+button:hover { transform: translateY(-2px) scale(1.04); }
+button:active { transform: scale(.97); }

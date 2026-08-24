@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>钓龙虾</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <h1>钓龙虾</h1>
+  <div id="hud">
+    <div>得分 <span id="score">0</span></div>
+    <div>关卡 <span id="level">1</span></div>
+  </div>
+  <div id="stage">
+    <canvas id="game"></canvas>
+    <div id="overlay">
+      <h2 id="ovTitle">🦞 钓小龙虾</h2>
+      <p id="ovText">
+        你站在岸边，钓竿只能在岸边移动。<br>
+        饵沉到水底后，小龙虾会被吸引爬过来，<br>
+        线晃动时<b>点击收杆</b>，把虾拖出水面！<br>
+        然后<b>抬竿</b>让虾离开水面，<br>
+        移到岸边<b>水桶</b>上方（桶会发光），再<b>点击</b>丢进桶里。<br>
+        <b>放进桶里才算捕获成功！</b><br>
+        <b>玩法：</b>放饵 → 等虾咬钩 → 收杆拖出水面 → 丢进桶里
+      </p>
+      <button id="startBtn">开始游戏</button>
+    </div>
+  </div>
+
+  <!-- 资源文件：配置 → 关卡 → 素材 → 游戏逻辑 -->
+  <script src="js/config.js"></script>
+  <script src="js/levels.js"></script>
+  <script src="js/sprites.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
