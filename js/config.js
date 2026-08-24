@@ -12,6 +12,7 @@ const CFG = {
   CRAY_COUNT: 24,         // 小龙虾数量
   CRAY_SPEED: 0.45,       // 小龙虾爬行速度（慢）
   TIME_OFFSET_HOURS: 0,   // 真实时间偏移（小时），调试用：想看白天就设正值
+  REEL_RATE: 0.03,        // 基础收杆速度（每帧推进量，连点可加速）
 };
 CFG.WATER_BOTTOM = CFG.H - 30;              // 水底
 CFG.BAIT_DEPTH = CFG.WATER_BOTTOM - 28;     // 饵料沉底后的高度

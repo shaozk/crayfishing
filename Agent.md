@@ -20,27 +20,37 @@
 
 `index.html` 中脚本**必须**按此顺序加载（有全局依赖）：
 
-1. `js/config.js` — 定义全局常量 `CFG`（所有尺寸/难度常量集中地，改这里可调整整个场景）
-2. `js/sprites.js` — 定义全局对象 `Sprites`（纯绘制函数，不修改游戏状态）
-3. `js/game.js` — IIFE 主逻辑（依赖以上所有全局）
+1. `js/config.js` — 定义全局常量 `CFG`（所有配置数据集中地：布局/物种/饵料/荷叶/饵料盒等）
+2. `js/state.js` — 定义共享状态对象 `Game`（所有模块通过它读写数据的单一数据源）
+3. `js/effects.js` — 特效工具（气泡/水花/特效更新），注册到 `Game`
+4. `js/crays.js` — 龙虾系统（生成/贴地移动/洞/坠落/挣脱/荷叶/捕获），注册到 `Game`
+5. `js/bait.js` — 饵料系统（耐久/吸引/咬钩/用光/饵料盒），注册到 `Game`
+6. `js/phases.js` — 钓竿物理 + 鱼线状态机 + 挣脱概率，注册到 `Game`
+7. `js/input.js` — 指针与点击交互（自行绑定 canvas 事件）
+8. `js/ui.js` — 水桶统计面板 / 饵料剩余提示
+9. `js/sprites.js` — 定义全局对象 `Sprites`（纯绘制函数，不修改游戏状态）
+10. `js/game.js` — 入口：注入 DOM、`startGame`、编排 update/draw、主循环、`__game` 调试钩子
 
-新增脚本请追加在 `game.js` 之后，并更新 `index.html`。
+新增脚本请追加在 `game.js` 之前，并更新 `index.html`。
 
 ## 核心架构约定
 
 ### 1. 布局配置集中在 CFG
 
 - 所有坐标/尺寸写在 `js/config.js` 的 `CFG` 中，**不要在游戏逻辑里硬编码魔法数字**（场景内的位置偏差除外）。
-- 关键字段：`W`/`H` 画布尺寸，`SHORE_X` 岸边-水面分界，`WATER_Y` 水面高度，`WATER_BOTTOM` 水底，`BAIT_DEPTH` 饵料沉底高度，`ROD_LEN`/`LINE_LEN` 竿长/线长，`HOOK_DROP` 收杆后虾挂在竿尖下方的高度，`BUCKET` 水桶位置。
+- 关键字段：`W`/`H` 画布尺寸，`SHORE_X` 岸边-水面分界，`WATER_Y` 水面高度，`WATER_BOTTOM` 水底，`BAIT_DEPTH` 饵料沉底高度，`ROD_LEN`/`LINE_LEN` 竿长/线长，`HOOK_DROP` 收杆后虾挂在竿尖下方的高度，`BUCKET` 水桶位置，`REEL_RATE` 基础收杆速度。
+
+### 1.5 模块间通过 Game 通信（单一数据源）
+
+- `state.js` 定义全局对象 `Game`：所有可变状态（`rod` / `line` / `crays` / `baitDura` …）都是它的属性；各模块把函数注册为 `Game.xxx`，互相通过 `Game.xxx()` 调用，杜绝闭包耦合与循环依赖。
+- 每个模块是「注册到 Game 的 IIFE」：`(() => { const G = Game; G.xxx = function () {…}; })();`
+- 状态一律读写 `G.xxx`；重置用 `G.crays = G.crays.filter(...)`（不要解构出局部引用再赋值，避免引用失效）。
+- 新增数据/方法时，同步更新 `state.js`（数据）与 `__game` 钩子（调试）。
 
 ### 2. 绘制与逻辑分离
 
-- `Sprites`（sprites.js）只做绘制，**不得修改游戏状态**；它通过参数 `G`（一个只读状态集合）拿到当前数据。
-- 所有状态更新在 `game.js` 的 `update()` 中进行；状态读取通过构造 `G` 传给绘制层：
-  ```js
-  const G = { rod, line, baitX, baitY, state, crays, ripples, bubbles, particles, dropReady, bucketCrays };
-  ```
-- 往 `G` 里加新字段时，同步改 `draw()` 和 `__game` 钩子。
+- `Sprites`（sprites.js）只做绘制，**不得修改游戏状态**；`game.js` 的 `draw()` 直接传入共享状态 `Game`（含 `time` / `baitKey` 两个派生 getter，等价于旧快照），素材库按需读取。
+- 所有状态更新由 `game.js` 的 `update()` 编排：`checkBaitExhausted()` → `updatePhase(t)` → `updateCrays()` → `updateEffects()`。
 
 ### 3. 鱼线状态机（game.js 中 `line.phase`）
 

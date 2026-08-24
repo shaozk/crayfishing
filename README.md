@@ -43,16 +43,23 @@ python3 -m http.server 8000
 
 ```
 crayfishing/
-├── index.html      # 页面骨架：HUD、画布、遮罩层、脚本加载顺序
+├── index.html      # 页面骨架：画布、饵料提示、水桶面板、脚本加载顺序
 ├── css/
 │   └── style.css   # 页面样式
 └── js/
-    ├── config.js   # 场景布局常量（画布尺寸、水面/水底、竿长线长、桶位置、虾数量/速度）
+    ├── config.js   # 配置数据（布局/物种/饵料/荷叶/饵料盒等，全部集中在这里）
+    ├── state.js    # 共享状态对象 Game + 工具（单一数据源，模块间通过它读写）
+    ├── effects.js  # 特效：气泡/水花/特效更新
+    ├── crays.js    # 龙虾系统：生成/贴地移动/洞/坠落/挣脱/荷叶/捕获
+    ├── bait.js     # 饵料系统：耐久/吸引/咬钩/用光/饵料盒
+    ├── phases.js   # 钓竿物理 + 鱼线状态机 + 挣脱概率
+    ├── input.js    # 指针与点击交互
+    ├── ui.js       # 水桶统计面板/饵料剩余提示
     ├── sprites.js  # 素材库：所有角色与场景的纯绘制函数
-    └── game.js     # 游戏主逻辑：状态机、交互、更新与主循环
+    └── game.js     # 入口：组装模块、编排 update/draw、主循环、调试钩子
 ```
 
-> ⚠️ 脚本加载顺序有依赖（`config.js` → `sprites.js` → `game.js`），在 `index.html` 中已按序引入，改动时不要打乱。
+> ⚠️ 脚本加载顺序有依赖（`config` → `state` → 系统模块 → `input`/`ui` → `sprites` → `game`），在 `index.html` 中已按序引入，改动时不要打乱。
 
 ## 技术要点
 
