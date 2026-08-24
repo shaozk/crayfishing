@@ -40,9 +40,11 @@ const Sprites = {
     const duskW = this.clamp01(1 - Math.abs(el) / 0.4);  // 1=晨昏暖色
     // 三色调和：夜蓝 ↔ 天蓝，再叠晨昏暖橙
     const top = this.mix3(this.mix3(this.hex('#0d1b38'), this.hex('#3f9fd6'), dayW), this.hex('#f09a4e'), duskW);
+    const mid = this.mix3(this.mix3(this.hex('#123055'), this.hex('#6fc2e6'), dayW), this.hex('#ffc080'), duskW);
     const bot = this.mix3(this.mix3(this.hex('#15264a'), this.hex('#a8dff2'), dayW), this.hex('#ffd9a0'), duskW);
     const g = ctx.createLinearGradient(0, 0, 0, WATER_Y + 20);
     g.addColorStop(0, this.rgb(top));
+    g.addColorStop(0.5, this.rgb(mid));
     g.addColorStop(1, this.rgb(bot));
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, WATER_Y + 20);
@@ -113,6 +115,12 @@ const Sprites = {
     if (info.stars) for (const st of info.stars) ctx.arc(st.x, st.y, 2, 0, Math.PI * 2);  // 抠掉星星
     ctx.fillStyle = `rgba(${r | 0},${gg | 0},${b | 0},${dark})`;
     ctx.fill('evenodd');
+    // 暗角：边缘轻微压暗，聚焦画面中央
+    const vg = ctx.createRadialGradient(W / 2, H * 0.45, H * 0.35, W / 2, H * 0.5, H * 0.95);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,.22)');
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, W, H);
   },
 
   // ---- 日月星辰（背景层）：太阳东升西落、月亮夜晚升起、星星闪烁 ----

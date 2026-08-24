@@ -11,8 +11,8 @@
 
 ## 项目概况
 
-- **技术栈**：原生 JavaScript（ES2015+）+ Canvas 2D，零依赖、无构建步骤，无需 npm install。
-- **运行方式**：`open index.html` 或 `python3 -m http.server` 后浏览器访问。
+- **技术栈**：原生 JavaScript（ES2015+）+ **Phaser 3**（`js/vendor/phaser.min.js`，游戏循环 / 输入 / 缩放 / 相机）+ Mustache（`js/vendor/mustache.min.js`，UI 模板）。无构建步骤，无需 npm install。
+- **运行方式**：`open index.html` 或 `python3 -m http.server` 后浏览器访问（Phaser 需现代浏览器）。
 - **语言**：代码注释、UI 文案均为中文；新增文案请保持中文。
 - **调试入口**：浏览器控制台访问 `globalThis.__game`（定义在 `game.js` 末尾），可读 `phase` / `score` / `crays` / `baitX` / `baitY` / `dropReady` / `bucketCrays`。
 
@@ -26,10 +26,13 @@
 4. `js/crays.js` — 龙虾系统（生成/贴地移动/洞/坠落/挣脱/荷叶/捕获），注册到 `Game`
 5. `js/bait.js` — 饵料系统（耐久/吸引/咬钩/用光/饵料盒），注册到 `Game`
 6. `js/phases.js` — 钓竿物理 + 鱼线状态机 + 挣脱概率，注册到 `Game`
-7. `js/input.js` — 指针与点击交互（自行绑定 canvas 事件）
-8. `js/ui.js` — 水桶统计面板 / 饵料剩余提示
-9. `js/sprites.js` — 定义全局对象 `Sprites`（纯绘制函数，不修改游戏状态）
-10. `js/game.js` — 入口：注入 DOM、`startGame`、编排 update/draw、主循环、`__game` 调试钩子
+7. `js/vendor/phaser.min.js` — **Phaser 3（MIT）**，游戏引擎（循环/输入/缩放/相机），必须在 `input.js` 之前加载
+8. `js/input.js` — 指针与点击交互（`Game.handleMove/handleClick`，由 Phaser 场景桥接坐标）
+9. `js/vendor/mustache.min.js` — Mustache（MIT），UI 模板渲染，必须在 `ui.js` 之前加载
+10. `js/ui.js` — 水桶统计面板 / 饵料剩余提示（Mustache 模板渲染）
+11. `js/sprites.js` — 定义全局对象 `Sprites`（纯绘制函数，不修改游戏状态）
+12. `js/scene.js` — Phaser 场景：驱动逻辑、画布纹理桥接渲染、输入绑定、震屏反馈
+13. `js/game.js` — 入口：Phaser 配置启动、`startGame`、`__game` 调试钩子
 
 新增脚本请追加在 `game.js` 之前，并更新 `index.html`。
 
@@ -47,12 +50,14 @@
 - 状态一律读写 `G.xxx`；重置用 `G.crays = G.crays.filter(...)`（不要解构出局部引用再赋值，避免引用失效）。
 - 新增数据/方法时，同步更新 `state.js`（数据）与 `__game` 钩子（调试）。
 
-### 2. 绘制与逻辑分离
+### 2. 绘制与逻辑分离（Phaser 场景 + 画布纹理桥接）
 
-- `Sprites`（sprites.js）只做绘制，**不得修改游戏状态**；`game.js` 的 `draw()` 直接传入共享状态 `Game`（含 `time` / `baitKey` 两个派生 getter，等价于旧快照），素材库按需读取。
-- 所有状态更新由 `game.js` 的 `update()` 编排：`checkBaitExhausted()` → `updatePhase(t)` → `updateCrays()` → `updateEffects()`。
+- `Sprites`（sprites.js）只做绘制，**不得修改游戏状态**；它把场景画进一个离屏画布。
+- `scene.js` 的 `GameScene` 用 `this.textures.createCanvas('scene', W, H)` 建立 **CanvasTexture**，每帧 `drawFrame()` 把 `Sprites.*` 依次画到该画布上再 `refresh()`，由 Phaser 全屏显示——既保留既有美术，又获得 Phaser 的循环 / 输入 / 缩放 / 相机能力。
+- 逻辑由 `GameScene.update()` 编排：`checkBaitExhausted()` → `updatePhase(t)` → `updateCrays()` → `updateEffects()`；捕获成功时用 `this.cameras.main.shake()` 做反馈。
+- 输入由 Phaser 桥接：`this.input.on('pointermove'/'pointerdown')` → `Game.handleMove/Game.handleClick`（坐标为画布坐标，无需手写缩放换算）。
 
-### 3. 鱼线状态机（game.js 中 `line.phase`）
+### 3. 鱼线状态机（`Game.line.phase`）
 
 虾的整个交互流程由状态机驱动，新增流程/交互时优先扩展此状态机：
 

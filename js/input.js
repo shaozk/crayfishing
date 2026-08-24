@@ -1,26 +1,15 @@
-/* ===== 输入：指针移动 / 点击交互 ===== */
+/* ===== 输入：指针与点击（由 Phaser Scene 桥接，直接传入画布坐标） ===== */
 (() => {
   const G = Game;
-  const canvas = document.getElementById('game');
-
-  // 事件坐标 → 画布坐标（含 object-fit 缩放换算）
-  G.toCanvas = function (e) {
-    const rect = canvas.getBoundingClientRect();
-    const scale = Math.min(rect.width / CFG.W, rect.height / CFG.H);
-    const ox = (rect.width - CFG.W * scale) / 2;
-    const oy = (rect.height - CFG.H * scale) / 2;
-    return { x: (e.clientX - rect.left - ox) / scale, y: (e.clientY - rect.top - oy) / scale };
-  };
 
   // 指针移动：钓竿限定在岸边
-  function onMove(e) {
-    const p = G.toCanvas(e);
-    G.pointer.x = G.clamp(p.x, 60, CFG.SHORE_X - 26);
-    G.pointer.y = G.clamp(p.y, 120, 255);
-  }
+  G.handleMove = function (cx, cy) {
+    G.pointer.x = G.clamp(cx, 60, CFG.SHORE_X - 26);
+    G.pointer.y = G.clamp(cy, 120, 255);
+  };
 
-  // 点击交互：放饵 / 收杆 / 投放进桶 / 水桶 / 饵料盒
-  G.onCanvasClick = function (e) {
+  // 点击交互：放饵 / 收杆 / 投放进桶 / 水桶 / 饵料盒（cx, cy 为画布坐标）
+  G.handleClick = function (cx, cy) {
     if (G.state !== 'playing') return;
 
     // 咬钩 → 收杆（把虾拉出水面）
@@ -54,12 +43,12 @@
     }
 
     // 点击水桶：查看当前捕获统计（按种类计数）
-    if (Math.hypot(G.toCanvas(e).x - CFG.BUCKET.x, G.toCanvas(e).y - CFG.BUCKET.y) < 46) {
+    if (Math.hypot(cx - CFG.BUCKET.x, cy - CFG.BUCKET.y) < 46) {
       G.toggleBucketPanel();
       return;
     }
     // 点击饵料盒：换下一种饵并显示剩余量
-    if (Math.hypot(G.toCanvas(e).x - CFG.BAITBOX.x, G.toCanvas(e).y - CFG.BAITBOX.y) < 36) {
+    if (Math.hypot(cx - CFG.BAITBOX.x, cy - CFG.BAITBOX.y) < 36) {
       G.clickBaitBox();
       return;
     }
@@ -86,17 +75,4 @@
       G.spawnBubbles(G.baitX, G.baitY, 6);
     }
   };
-
-  // 事件绑定
-  canvas.addEventListener('mousemove', onMove);
-  canvas.addEventListener('touchmove', e => {
-    e.preventDefault();
-    onMove(e.touches[0]);
-  }, { passive: false });
-  canvas.addEventListener('touchstart', e => {
-    e.preventDefault();
-    onMove(e.touches[0]);
-    G.onCanvasClick(e.touches[0]);
-  }, { passive: false });
-  canvas.addEventListener('click', G.onCanvasClick);
 })();

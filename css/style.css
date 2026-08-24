@@ -1,110 +1,152 @@
-/* ===== 钓小龙虾 样式 ===== */
+/* ===== 钓小龙虾 样式（Phaser + DOM 浮层） ===== */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { height: 100%; }
 body {
-  background: linear-gradient(180deg, #1a2a3a 0%, #2c5f3a 100%);
+  background: radial-gradient(1200px 800px at 50% 18%, #2b4a6b 0%, #1a2e48 55%, #0c1526 100%);
   overflow: hidden;
-  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", sans-serif;
   color: #fff;
   user-select: none;
 }
-/* 全屏：舞台铺满视口，画布等比缩放居中 */
+
+/* 舞台：铺满视口，Phaser 画布 FIT 居中，DOM 浮层叠在其上 */
 #stage {
   position: fixed;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow: hidden;
 }
-canvas {
+#stage canvas {
   display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;   /* 保持 900×560 比例，多余区域留黑边 */
-  cursor: crosshair;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, .5);
 }
+
 /* 饵料剩余信息（点击饵料盒才短暂显示） */
 #baitInfo {
   position: absolute;
-  background: rgba(10, 25, 18, .85);
-  backdrop-filter: blur(4px);
-  border-radius: 8px;
-  padding: 4px 12px;
+  background: rgba(13, 24, 34, .88);
+  border: 1px solid rgba(255, 255, 255, .14);
+  backdrop-filter: blur(8px);
+  border-radius: 10px;
+  padding: 6px 14px;
   font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .5px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
   z-index: 4;
   pointer-events: none;
   white-space: nowrap;
 }
 #baitInfo.hidden { display: none; }
+
+/* 开始遮罩 */
+#overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 16, 26, .72);
+  backdrop-filter: blur(10px) saturate(1.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  z-index: 5;
+}
+#overlay.hidden { display: none; }
+#overlay h2 {
+  font-size: 44px;
+  letter-spacing: 10px;
+  background: linear-gradient(180deg, #ffe9a8 0%, #ffb84d 55%, #ff8c42 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 4px 14px rgba(255, 140, 66, .35));
+}
+.ovSub {
+  font-size: 15px;
+  opacity: .78;
+  letter-spacing: 3px;
+}
+
+/* 按钮 */
+button {
+  font-size: 17px;
+  padding: 12px 40px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ff9a4d, #e05f1a);
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 3px;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(224, 95, 26, .45), inset 0 1px 0 rgba(255, 255, 255, .35);
+  transition: transform .12s, box-shadow .12s;
+}
+button:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 10px 28px rgba(224, 95, 26, .55), inset 0 1px 0 rgba(255, 255, 255, .35);
+}
+button:active { transform: scale(.97); }
+
 /* 水桶捕获统计面板 */
 #bucketPanel {
   position: absolute;
-  left: 10px;
-  bottom: 10px;
-  background: rgba(10, 25, 18, .82);
-  backdrop-filter: blur(4px);
-  border-radius: 12px;
-  padding: 12px 16px;
+  left: 12px;
+  bottom: 12px;
+  background: rgba(13, 24, 34, .82);
+  border: 1px solid rgba(255, 255, 255, .12);
+  backdrop-filter: blur(10px);
+  border-radius: 14px;
+  padding: 14px 18px;
   font-size: 14px;
-  min-width: 190px;
-  box-shadow: 0 6px 20px rgba(0,0,0,.45);
+  min-width: 210px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .45);
   z-index: 6;
+  animation: panelIn .2s ease;
 }
+@keyframes panelIn { from { opacity: 0; transform: translateY(8px); } }
 #bucketPanel.hidden { display: none; }
 .bpHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-weight: bold;
+  font-weight: 700;
+  font-size: 15px;
   margin-bottom: 8px;
+  letter-spacing: 1px;
 }
 #bpClose {
   background: none;
   border: none;
-  color: #ffd966;
-  font-size: 14px;
+  color: rgba(255, 217, 102, .9);
+  font-size: 15px;
   cursor: pointer;
   padding: 0 4px;
   box-shadow: none;
+  letter-spacing: 0;
 }
-#speciesList .row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
-#speciesList .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+#bpClose:hover { transform: none; box-shadow: none; color: #ffd966; }
+#speciesList .row { display: flex; align-items: center; gap: 9px; padding: 4px 0; }
+#speciesList .dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  flex: none;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .22), 0 1px 3px rgba(0, 0, 0, .4);
+}
 #speciesList .row .name { flex: 1; }
-#speciesList .row .num { color: #ffd966; font-weight: bold; }
-#speciesList .row.zero { opacity: .55; }
+#speciesList .row .num {
+  color: #ffd966;
+  font-weight: 700;
+  font-size: 12px;
+  background: rgba(255, 217, 102, .15);
+  border-radius: 9px;
+  padding: 2px 8px;
+}
+#speciesList .row.zero { opacity: .5; }
 .bpTotal {
-  border-top: 1px solid rgba(255,255,255,.15);
-  margin-top: 8px;
-  padding-top: 8px;
-  font-weight: bold;
+  border-top: 1px solid rgba(255, 255, 255, .14);
+  margin-top: 9px;
+  padding-top: 9px;
+  font-weight: 700;
 }
 .bpTotal span { color: #ffd966; }
-#overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(10, 25, 18, .78);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  backdrop-filter: blur(3px);
-  z-index: 5;
-}
-#overlay.hidden { display: none; }
-#overlay h2 { font-size: 34px; letter-spacing: 6px; }
-button {
-  font-size: 18px;
-  padding: 10px 34px;
-  border: none;
-  border-radius: 30px;
-  background: linear-gradient(180deg, #ff8c42, #e05f1a);
-  color: #fff;
-  font-weight: bold;
-  cursor: pointer;
-  letter-spacing: 2px;
-  box-shadow: 0 4px 14px rgba(224,95,26,.5);
-  transition: transform .12s;
-}
-button:hover { transform: translateY(-2px) scale(1.04); }
-button:active { transform: scale(.97); }

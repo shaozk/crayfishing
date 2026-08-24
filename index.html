@@ -8,7 +8,6 @@
 </head>
 <body>
   <div id="stage">
-    <canvas id="game"></canvas>
     <div id="baitInfo" class="hidden"></div>
     <div id="bucketPanel" class="hidden">
       <div class="bpHead">🪣 捕获统计<button id="bpClose">✕</button></div>
@@ -17,20 +16,36 @@
     </div>
     <div id="overlay">
       <h2>🦞 钓小龙虾</h2>
+      <p class="ovSub">放饵 → 等虾咬钩 → 收杆 → 丢进桶里</p>
       <button id="startBtn">开始游戏</button>
     </div>
   </div>
 
-  <!-- 资源文件：配置 → 状态 → 特效 → 系统 → 输入/UI → 素材 → 入口 -->
+  <!-- Mustache 模板（由 js/ui.js 渲染） -->
+  <script type="text/template" id="tpl-species">
+{{#species}}
+<div class="row{{#zero}} zero{{/zero}}">
+  <span class="dot" style="background:{{color}}"></span>
+  <span class="name">{{name}}</span>
+  <span class="num">×{{count}}</span>
+</div>
+{{/species}}
+  </script>
+  <script type="text/template" id="tpl-bait-info">{{icon}} {{name}}：剩余 {{left}}/{{dur}}</script>
+
+  <!-- 资源文件：配置 → 状态 → 特效 → 系统 → Phaser → 输入/UI → 素材 → 场景 → 入口 -->
   <script src="js/config.js"></script>
   <script src="js/state.js"></script>
   <script src="js/effects.js"></script>
   <script src="js/crays.js"></script>
   <script src="js/bait.js"></script>
   <script src="js/phases.js"></script>
+  <script src="js/vendor/phaser.min.js"></script>
   <script src="js/input.js"></script>
+  <script src="js/vendor/mustache.min.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/sprites.js"></script>
+  <script src="js/scene.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>

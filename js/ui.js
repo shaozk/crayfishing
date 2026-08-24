@@ -1,6 +1,10 @@
-/* ===== UI：水桶统计面板 / 饵料剩余提示 ===== */
+/* ===== UI：水桶统计面板 / 饵料剩余提示（HTML 由 Mustache 模板渲染） ===== */
 (() => {
   const G = Game;
+
+  // ---- 模板（来自 index.html 的 <script type="text/template">） ----
+  const tplSpecies = document.getElementById('tpl-species').innerHTML;
+  const tplBaitInfo = document.getElementById('tpl-bait-info').innerHTML;
 
   // ---- 水桶统计面板（按种类计数，点水桶查看） ----
   const bucketPanel = document.getElementById('bucketPanel');
@@ -9,15 +13,17 @@
   document.getElementById('bpClose').addEventListener('click', () => bucketPanel.classList.add('hidden'));
 
   G.renderBucketPanel = function () {
-    let html = '';
-    let total = 0;
-    for (const [key, sp] of Object.entries(CFG.CRAY_SPECIES)) {
+    const species = Object.entries(CFG.CRAY_SPECIES).map(([key, sp]) => {
       const n = G.caughtCounts[key] || 0;
-      total += n;
-      const c = Sprites.rgb(Sprites.mix3(Sprites.hex(sp.body[0][1]), Sprites.hex(sp.body[1][1]), 0.4));
-      html += `<div class="row${n ? '' : ' zero'}"><span class="dot" style="background:${c}"></span><span class="name">${sp.name}</span><span class="num">×${n}</span></div>`;
-    }
-    speciesListEl.innerHTML = html;
+      return {
+        name: sp.name,
+        color: Sprites.rgb(Sprites.mix3(Sprites.hex(sp.body[0][1]), Sprites.hex(sp.body[1][1]), 0.4)),
+        count: n,
+        zero: n === 0
+      };
+    });
+    const total = species.reduce((sum, it) => sum + it.count, 0);
+    speciesListEl.innerHTML = Mustache.render(tplSpecies, { species });
     totalCountEl.textContent = total;
   };
 
@@ -32,8 +38,12 @@
 
   G.showBaitInfo = function (key) {
     const b = CFG.BAITS[key];
-    const left = Math.max(0, Math.round(G.baitDura[key]));
-    baitInfoEl.innerHTML = `${b.icon} ${b.name}：剩余 ${left}/${b.dur}`;
+    baitInfoEl.innerHTML = Mustache.render(tplBaitInfo, {
+      icon: b.icon,
+      name: b.name,
+      left: Math.max(0, Math.round(G.baitDura[key])),
+      dur: b.dur
+    });
     // 定位在饵料盒旁边（画布坐标 → 屏幕坐标）
     const rect = G.canvas.getBoundingClientRect();
     const scale = Math.min(rect.width / CFG.W, rect.height / CFG.H);
