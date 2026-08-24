@@ -22,6 +22,19 @@ class GameScene extends Phaser.Scene {
     Game.startBtn = document.getElementById('startBtn');
     Game.startBtn.addEventListener('click', () => Game.startGame());
 
+    // ---- 全屏按钮（移动端沉浸；不支持全屏 API 的设备隐藏，如 iOS Safari） ----
+    const fsBtn = document.getElementById('fsBtn');
+    if (fsBtn) {
+      if (document.documentElement.requestFullscreen) {
+        fsBtn.addEventListener('click', () => {
+          if (document.fullscreenElement) document.exitFullscreen();
+          else document.documentElement.requestFullscreen();
+        });
+      } else {
+        fsBtn.classList.add('hidden');
+      }
+    }
+
     // ---- 输入（Phaser 原生，自动处理鼠标与触摸，坐标为画布坐标） ----
     this.input.on('pointermove', p => Game.handleMove(p.worldX, p.worldY));
     this.input.on('pointerdown', p => Game.handleClick(p.worldX, p.worldY));

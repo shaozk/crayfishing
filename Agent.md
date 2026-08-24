@@ -102,6 +102,7 @@
 - **饵料盒** → `CFG.BAITBOX`（config.js，水桶旁）定义位置，`Sprites.drawBaitBox()` 绘制木盒并展示当前饵料；`onCanvasClick` 命中检测后 `clickBaitBox()` 循环换下一种饵（空饵自动补满）并 `showBaitInfo()` 在盒旁显示剩余量。
 - **荷叶** → `CFG.LEAVES`（config.js）定义水面浮叶，`Sprites.drawLeaves()` 绘制；`leafDropCheck()`（game.js）在 reeling/hooked 阶段对每只上钩的虾判定：穿过水面（|y-WATER_Y|<34）且碰到叶子（半径 + 虾半身）时 45% 概率直接掉落（走 `escapeCray()` 物理落水）。
 - **多虾处理** → 收杆/挂竿/投放/计分都按 `crays.filter(c => c.hooked)` 批量处理；挣脱逐只判断，`escapeCray(h)` 只释放单只，没有别的虾挂着才复位钓线。
+- **移动端适配** → 触摸输入由 `scene.js` 的 Phaser `pointerdown/pointermove` 接管（`Game.handleMove/handleClick`，自动处理触摸与缩放坐标）；CSS 中 `touch-action`/`overscroll-behavior`/`-webkit-tap-highlight` 禁用浏览器手势；竖屏提示 `#rotateHint` 用 `@media (orientation: portrait) and (pointer: coarse)` 控制；全屏按钮 `#fsBtn` 做能力检测（iOS Safari 隐藏）；DOM 面板用 `env(safe-area-inset-*)` 避让刘海屏。
 - **日夜更迭** → `game.js` 的 `getDayT()` 按真实时钟计算（0~1，0=午夜 / 0.25=6:00 日出 / 0.5=正午 / 0.75=18:00 日落），`CFG.TIME_OFFSET_HOURS` 可偏移调试；绘制：`Sprites.drawSky()` 天空渐变随时间插色 → `Sprites.drawCelestial()` 日月星辰作为**背景层**（画在最底层，不遮挡角色）→ 场景 → `Sprites.drawLighting()` 全局亮度/晨昏暖色，用 evenodd 路径抠掉天体区域使其保持明亮；天体几何由 `celestialInfo()` 统一计算，绘制与遮罩共用。
 - **钓竿动画** → 分两处：`game.js` 的 `update()` 在 `bite`/`reeling`/`hooked` 阶段让竿梢在重力方向下垂（`rod.y += 7 + weight*12 + |shake|*0.3`，虾越重垂得越多）；`Sprites.drawLine()` 画竿身弧线，控制点取沿竿 70% 处 + 指向重力侧的垂直偏移 `(-dy, dx)/len * flex`，弯曲始终朝重力方向，无负载时笔直。
 

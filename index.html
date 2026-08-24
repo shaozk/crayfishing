@@ -2,12 +2,16 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0c1526">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>钓龙虾</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <div id="stage">
+    <button id="fsBtn" title="全屏">⛶</button>
     <div id="baitInfo" class="hidden"></div>
     <div id="bucketPanel" class="hidden">
       <div class="bpHead">🪣 捕获统计<button id="bpClose">✕</button></div>
@@ -19,6 +23,12 @@
       <p class="ovSub">放饵 → 等虾咬钩 → 收杆 → 丢进桶里</p>
       <button id="startBtn">开始游戏</button>
     </div>
+  </div>
+
+  <!-- 竖屏提示（触屏设备 + 竖屏时显示） -->
+  <div id="rotateHint">
+    <div class="rhIcon">📱</div>
+    <div class="rhText">请旋转手机到横屏游玩<br><small>Rotate your device</small></div>
   </div>
 
   <!-- Mustache 模板（由 js/ui.js 渲染） -->

@@ -31,13 +31,19 @@
     get bait() { return { active: G.activeBait, inWater: G.castBait, dur: G.baitDura }; },
   };
 
-  // ---- 启动 Phaser（自动适配全屏，FIT 等比缩放） ----
+  // ---- 启动 Phaser（自动适配全屏，FIT 等比缩放，移动端触摸友好） ----
   new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'stage',
     width: CFG.W,
     height: CFG.H,
     backgroundColor: '#0b1526',
+    disableContextMenu: true,            // 长按不弹右键菜单
+    powerPreference: 'high-performance',
+    input: {
+      activePointers: 2,
+      touch: { capture: true },          // 触摸事件 preventDefault，防页面滚动
+    },
     scale: {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
