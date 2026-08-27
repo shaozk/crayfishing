@@ -1,5 +1,11 @@
 # 素材版权说明 / Credits
 
+## AI 协作者
+
+本项目由人类开发者与 AI 编程代理协作完成：
+
+- **pi**（AI 编程代理，@earendil-works/pi-coding-agent，模型 deepseek-v4-pro）——参与代码实现、重构、调试、素材集成与文档撰写。
+
 ## Twemoji（本游戏实体精灵）
 
 `assets/` 下的 PNG 素材来自 **Twemoji**（Twitter 表情符号集）v14.0.2：
