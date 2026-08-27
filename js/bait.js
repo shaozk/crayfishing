@@ -55,12 +55,19 @@
     }
   };
 
-  // 点击饵料盒：换下一种饵并显示剩余量
+  // 点击饵料盒：换饵并显示剩余量。
+  // 规则：饵还在水里够不着 → 只看剩余；钩上没饵（被吃光）或饵已缩出水面 → 可换/补饵。
   G.clickBaitBox = function () {
-    if (G.rod.baitInWater) { G.showBaitInfo(G.activeBait); return; }   // 饵在水中不能换，只看剩余
+    const hookEmpty = G.rod.baitInWater && !G.castBait;                    // 钩上没饵（被吃光）
+    const baitAtHand = !G.rod.baitInWater || G.baitY < CFG.WATER_Y;        // 未部署，或已缩到水面上方
+    if (!hookEmpty && !baitAtHand) { G.showBaitInfo(G.activeBait); return; }
     const keys = Object.keys(CFG.BAITS);
     G.activeBait = keys[(keys.indexOf(G.activeBait) + 1) % keys.length];   // 循环换下一种
     if (G.baitDura[G.activeBait] <= 0) G.baitDura[G.activeBait] = CFG.BAITS[G.activeBait].dur;   // 空饵补上新饵
+    if (G.rod.baitInWater) {
+      G.castBait = G.activeBait;                                           // 换上钩上的饵（补空/换新），损耗 1
+      G.baitDura[G.activeBait] = Math.max(0, G.baitDura[G.activeBait] - 1);
+    }
     G.showBaitInfo(G.activeBait);
   };
 })();

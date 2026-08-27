@@ -44,6 +44,76 @@ body {
 #fsBtn:hover { transform: none; box-shadow: none; }
 #fsBtn.hidden { display: none; }
 
+/* 线长滑块（移动端：滚轮的替代，拖动调长短；上=长 下=短） */
+#lineSlider {
+  display: none;
+  position: absolute;
+  right: max(16px, env(safe-area-inset-right));
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 58vh;
+  min-height: 200px;
+  z-index: 6;
+  touch-action: none;
+}
+@media (pointer: coarse) {
+  #lineSlider { display: block; }
+}
+#lineSliderTrack {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 8px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, .16);
+  border: 1px solid rgba(255, 255, 255, .12);
+}
+#lineSliderFill {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 8px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #ffd966, #ff8c42);
+  height: 50%;
+}
+#lineSliderKnob {
+  position: absolute;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffe9a8, #ff9a4d 60%, #e05f1a);
+  border: 2px solid rgba(255, 255, 255, .35);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .45);
+  transform: translate(-50%, -50%);
+  top: 50%;
+}
+#lineSliderMark {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 22px;
+  height: 2px;
+  background: rgba(255, 255, 255, .45);
+  border-radius: 1px;
+}
+.lsLabel {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  opacity: .65;
+  letter-spacing: 1px;
+  pointer-events: none;
+}
+.lsTop { top: -20px; }
+.lsBottom { bottom: -20px; }
+
 /* 竖屏旋转提示：触屏设备 + 竖屏时全屏覆盖 */
 #rotateHint {
   display: none;

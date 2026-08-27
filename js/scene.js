@@ -8,8 +8,16 @@ class GameScene extends Phaser.Scene {
     super('GameScene');
   }
 
+  preload() {
+    // 素材改为 scene.create() 里 <img> 手动加载（见 Assets.load），
+    // 不依赖 Phaser Loader 的 XHR（file:// 下会失败导致素材缺失）。
+  }
+
   create() {
     const W = CFG.W, H = CFG.H;
+
+    // ---- 素材：<img> 异步加载（file:// 与 http 皆可用；未就绪时绘制回退程序化） ----
+    Assets.load();
 
     // ---- 画布纹理：场景全部绘制到这张离屏画布，再作为纹理显示 ----
     this.sceneTex = this.textures.createCanvas('scene', W, H);
@@ -38,6 +46,8 @@ class GameScene extends Phaser.Scene {
     // ---- 输入（Phaser 原生，自动处理鼠标与触摸，坐标为画布坐标） ----
     this.input.on('pointermove', p => Game.handleMove(p.worldX, p.worldY));
     this.input.on('pointerdown', p => Game.handleClick(p.worldX, p.worldY));
+    // 滚轮调节线长（上滚放长、下滚缩短）
+    this.input.on('wheel', (p, over, dx, dy) => Game.handleWheel(dy));
 
     // ---- 捕获成功时轻微震屏（Phaser 相机效果） ----
     this.lastScore = Game.score;
@@ -58,6 +68,8 @@ class GameScene extends Phaser.Scene {
         this.lastScore = Game.score;
       }
     }
+    // 线长滑块每帧同步（桌面滚轮改线长时也跟随）
+    Game.updateLineSlider();
     this.drawFrame();
   }
 

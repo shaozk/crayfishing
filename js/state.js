@@ -12,9 +12,12 @@ const Game = {
 
   // ---- 钓竿 ----
   rod: { x: 150, y: 0, baseX: 150, baseY: 0, baitInWater: false },
+  rodHeld: true,                     // F 键切换：是否手持钓竿
+  rodGroundX: 150,                   // 放下钓竿时，竿落在地面的位置
 
   // ---- 饵料实际位置（线尾，受重力下垂）与钓线状态机 ----
   baitX: 150, baitY: 0,
+  lineLen: CFG.LINE_LEN,               // 当前线长（鼠标滚轮调节，默认固定长度）
   line: {
     phase: 'idle',               // idle | sinking | waiting | bite | reeling | hooked | dropping
     sinkP: 0, reelT: 0, dropT: 0,
@@ -45,6 +48,11 @@ const Game = {
 
   // ---- 指针（钓竿限定在岸边） ----
   pointer: { x: 150, y: 0 },
+
+  // ---- 键盘状态（左右键移动人物，W/S 调竿尖仰角） ----
+  playerX: 150,             // 人物沿岸边的位置
+  keyLeft: false, keyRight: false,
+  keyUp: false, keyDown: false,
 
   // ---- 工具 ----
   rand(a, b) { return a + Math.random() * (b - a); },

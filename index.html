@@ -12,6 +12,14 @@
 <body>
   <div id="stage">
     <button id="fsBtn" title="全屏">⛶</button>
+    <div id="lineSlider" class="hidden">
+      <span class="lsLabel lsTop">长</span>
+      <div id="lineSliderTrack"></div>
+      <div id="lineSliderFill"></div>
+      <div id="lineSliderKnob"></div>
+      <div id="lineSliderMark"></div>
+      <span class="lsLabel lsBottom">短</span>
+    </div>
     <div id="baitInfo" class="hidden"></div>
     <div id="bucketPanel" class="hidden">
       <div class="bpHead">🪣 捕获统计<button id="bpClose">✕</button></div>
@@ -55,6 +63,7 @@
   <script src="js/vendor/mustache.min.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/sprites.js"></script>
+  <script src="js/assets.js"></script>
   <script src="js/scene.js"></script>
   <script src="js/game.js"></script>
 </body>

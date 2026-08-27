@@ -32,6 +32,53 @@
     bucketPanel.classList.toggle('hidden');
   };
 
+  // ---- 线长滑块（移动端：滚轮的替代。上=放长 下=缩短，拖动调线长） ----
+  const lineSlider = document.getElementById('lineSlider');
+  const lineSliderKnob = document.getElementById('lineSliderKnob');
+  const lineSliderFill = document.getElementById('lineSliderFill');
+  const lineSliderMark = document.getElementById('lineSliderMark');
+  let sliderCache = -1;
+
+  // 由指针 Y 坐标计算线长（上=长）
+  function setLineLenFromY(clientY) {
+    if (!lineSlider) return;
+    const rect = lineSlider.getBoundingClientRect();
+    if (!rect.height) return;
+    const f = G.clamp(1 - (clientY - rect.top) / rect.height, 0, 1);
+    G.lineLen = CFG.LINE_MIN + f * (CFG.LINE_MAX - CFG.LINE_MIN);
+    G.updateLineSlider();
+  }
+
+  if (lineSlider) {
+    lineSlider.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      setLineLenFromY(e.clientY);
+      const move = ev => { ev.preventDefault(); setLineLenFromY(ev.clientY); };
+      const up = () => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        window.removeEventListener('pointercancel', up);
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+      window.addEventListener('pointercancel', up);
+    });
+  }
+
+  // 每帧同步滑块位置（桌面滚轮改线长时也跟随）；值没变就不碰 DOM
+  G.updateLineSlider = function () {
+    if (!lineSlider) return;
+    const f = (G.lineLen - CFG.LINE_MIN) / (CFG.LINE_MAX - CFG.LINE_MIN);
+    if (Math.abs(f - sliderCache) < 0.001) return;
+    sliderCache = f;
+    if (lineSliderKnob) lineSliderKnob.style.top = ((1 - f) * 100) + '%';
+    if (lineSliderFill) lineSliderFill.style.height = (f * 100) + '%';
+    if (lineSliderMark) {
+      lineSliderMark.style.bottom = ((CFG.LINE_LEN - CFG.LINE_MIN) / (CFG.LINE_MAX - CFG.LINE_MIN) * 100) + '%';
+    }
+  };
+  G.updateLineSlider();
+
   // ---- 饵料剩余提示（点击饵料盒时短暂显示，不常驻） ----
   const baitInfoEl = document.getElementById('baitInfo');
   let baitInfoTimer = 0;

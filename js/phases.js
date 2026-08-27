@@ -18,12 +18,20 @@
 
   // 钓竿物理 + 线状态机（每帧调用一次）
   G.updatePhase = function (t) {
-    const { W, SHORE_X, WATER_Y, ROD_LEN, LINE_LEN, HOOK_DROP, BAIT_DEPTH, BUCKET } = CFG;
+    const { W, SHORE_X, WATER_Y, ROD_LEN, HOOK_DROP, BAIT_DEPTH, BUCKET } = CFG;
     const { rod, line, pointer } = G;
 
     // 钓竿物理：固定长度，底座沿岸边走动，竿尖指向鼠标方向
-    rod.baseX = clamp(pointer.x, 60, SHORE_X - 26);
+    // 人物沿岸边移动：键盘 ←/→ 连续移动；指针横向移动直接定位
+    if (G.keyLeft || G.keyRight) {
+      G.playerX = clamp(G.playerX + (G.keyRight - G.keyLeft) * CFG.PLAYER_SPEED, 60, SHORE_X - 26);
+    }
+    rod.baseX = G.playerX;
     rod.baseY = WATER_Y - 80;
+    // 竿尖仰角：键盘 ↑/↓ 微调（鼠标移动时以鼠标为准）
+    if (G.keyUp || G.keyDown) {
+      pointer.y = clamp(pointer.y - (G.keyUp - G.keyDown) * CFG.AIM_SPEED, 120, 255);
+    }
     const theta = clamp(Math.atan2(pointer.y - rod.baseY, 55), -0.7, 0.84);
     rod.x = rod.baseX + ROD_LEN * Math.cos(theta);
     rod.y = rod.baseY + ROD_LEN * Math.sin(theta);
@@ -33,8 +41,9 @@
       const weight = hookedCray ? Math.min(1, hookedCray.size / 26) : 0.7;
       rod.y += 7 + weight * 12 + Math.abs(line.shake || 0) * 0.3;
     }
-    // 饵的目标悬挂深度：固定线长 + 重力，线不够长就停在水中/水底
-    const targetY = clamp(rod.y + LINE_LEN, WATER_Y + 5, BAIT_DEPTH);
+    // 饵的目标悬挂深度：线长可变（滚轮调节），饵挂在竿尖下方 lineLen 处、不超过水底
+    // 线太短时饵可悬在空中（不出水就不能吸引/咬钩，需放长线）
+    const targetY = Math.min(rod.y + G.lineLen, BAIT_DEPTH);
 
     // 线状态机
     if (line.phase === 'sinking') {
@@ -43,11 +52,19 @@
       const p = Math.min(1, line.sinkP);
       const e = 1 - Math.pow(1 - p, 3);           // ease-out：受重力加速下沉
       G.baitX = rod.x + Math.sin(line.wiggle) * 2;
-      G.baitY = WATER_Y + 4 + (targetY - WATER_Y - 4) * e;
+      // 线太短时饵悬在水面之上（不“下沉”）；否则从水面下沉到目标深度
+      if (targetY <= WATER_Y + 4) {
+        G.baitY = targetY;
+      } else {
+        G.baitY = WATER_Y + 4 + (targetY - WATER_Y - 4) * e;
+      }
       if (p >= 1) {
         line.phase = 'waiting';
-        G.ripples.push({ x: G.baitX, y: WATER_Y + 8, r: 4, max: 30, life: 36 });
-        G.scareNearbyCrays();                     // 落水声吓跑附近的虾
+        // 只有饵真正入水才产生落水涟漪、吓跑附近的虾
+        if (G.baitY >= WATER_Y) {
+          G.ripples.push({ x: G.baitX, y: WATER_Y + 8, r: 4, max: 30, life: 36 });
+          G.scareNearbyCrays();
+        }
       }
     } else if (line.phase === 'waiting') {
       line.shake *= 0.95;
