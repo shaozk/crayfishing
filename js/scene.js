@@ -45,7 +45,8 @@ class GameScene extends Phaser.Scene {
 
     // ---- 输入（Phaser 原生，自动处理鼠标与触摸，坐标为画布坐标） ----
     this.input.on('pointermove', p => Game.handleMove(p.worldX, p.worldY));
-    this.input.on('pointerdown', p => Game.handleClick(p.worldX, p.worldY));
+    this.input.on('pointerdown', p => Game.handleDown(p.worldX, p.worldY));
+    this.input.on('pointerup', () => Game.handleUp());
     // 滚轮调节线长（上滚放长、下滚缩短）
     this.input.on('wheel', (p, over, dx, dy) => Game.handleWheel(dy));
 

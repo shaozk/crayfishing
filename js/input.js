@@ -1,21 +1,74 @@
-/* ===== 输入：指针与点击（由 Phaser Scene 桥接，直接传入画布坐标） ===== */
+/* ===== 输入：握竿拖拽 + 点击交互（由 Phaser Scene 桥接，直接传入画布坐标） =====
+ * 交互模型：按住竿身任意位置=握住该处；拖动=竿指向鼠标方位（绝对指向）+
+ * 玩家随鼠标横向走位；松手=竿定格、指针完全空闲。
+ * 点击语义分流：非紧急阶段按下竿身→握竿，其余点击→原 handleClick（放饵/收杆/投放/桶/饵盒）。
+ */
 (() => {
   const G = Game;
 
-  // 指针移动：钓竿限定在岸边（指针横向移动也控制人物位置）
-  G.handleMove = function (cx, cy) {
-    const px = G.clamp(cx, 60, CFG.SHORE_X - 26);
-    G.pointer.x = px;
-    G.pointer.y = G.clamp(cy, 120, 255);
-    G.playerX = px;
+  // 紧急阶段（点击=动作）不允许开始握竿，防止忙乱中点竿误触；已握住则继续跟手
+  const AIM_PHASES = ['idle', 'sinking', 'waiting', 'hooked'];
+
+  // 点到竿身线段（肩→梢）的投影比例 t∈[0.08,0.95]；距离超过命中半径返回 -1
+  G.rodHit = function (cx, cy) {
+    const { baseX: sx, baseY: sy, x: tx, y: ty } = G.rod;
+    const dx = tx - sx, dy = ty - sy;
+    const len2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0.08, Math.min(0.95, ((cx - sx) * dx + (cy - sy) * dy) / len2));
+    const d = Math.hypot(cx - (sx + dx * t), cy - (sy + dy * t));
+    return d <= CFG.GRIP_HIT_R ? t : -1;
   };
+
+  function setCursor(c) {
+    if (G.canvas) G.canvas.style.cursor = c;
+  }
+
+  // 指针移动：仅握竿拖动时生效；非握持时只做悬停光标反馈（web 通用约定，无视觉新增）
+  G.handleMove = function (cx, cy) {
+    if (!G.rodHeld) return;
+    if (G.rod.gripping) {
+      const sx = G.rod.baseX, sy = G.rod.baseY;
+      if (Math.hypot(cx - sx, cy - sy) >= CFG.GRIP_DEADZONE) {
+        G.rod.theta = G.clamp(Math.atan2(cy - sy, cx - sx), -0.7, 0.84);
+      }
+      G.playerX = G.clamp(cx, 60, CFG.SHORE_X - 26);
+    } else {
+      setCursor(G.rodHit(cx, cy) >= 0 ? 'grab' : '');
+    }
+  };
+
+  // 按下：优先尝试握竿（命中竿身且处于非紧急阶段）；否则走原点击交互
+  G.handleDown = function (cx, cy) {
+    if (G.state !== 'playing') return;
+    if (!G.rod.gripping && AIM_PHASES.includes(G.line.phase)) {
+      const t = G.rodHit(cx, cy);
+      if (t >= 0) {
+        G.rod.gripping = true;
+        G.rod.gripT = t;
+        setCursor('grabbing');
+        return;
+      }
+    }
+    G.handleClick(cx, cy);
+  };
+
+  // 松手：结束握持（不触发任何点击）
+  G.handleUp = function () {
+    if (G.rod.gripping) {
+      G.rod.gripping = false;
+      setCursor('');
+    }
+  };
+  // 指针拖出画布外松开的兜底
+  window.addEventListener('pointerup', () => G.handleUp());
 
   // F 键：捡起 / 放下钓竿。放下时竿落在地面；捡起必须靠近地上的竿（不弹提示）
   G.toggleRod = function () {
     if (G.rodHeld) {
-      // 放下：竿落在人物当前的位置，收回鱼线、释放挂钩的虾
+      // 放下：竿落在人物当前的位置，收回鱼线、释放挂钩的虾、强制松手
       G.rodGroundX = G.playerX;
       G.rodHeld = false;
+      G.rod.gripping = false;
       G.rod.baitInWater = false;
       G.line.phase = 'idle';
       G.castBait = null;
@@ -31,25 +84,18 @@
     // 不弹任何提示文字（模拟现实：竿在地上就是信号）
   };
 
-  // 键盘：←/→（或 A/D）控制人物沿岸边前后移动；↑/↓（或 W/S）调竿尖仰角；F 捡起/放下钓竿
+  // 键盘：←/→（或 A/D）控制人物沿岸边移动；F 捡起/放下钓竿
   G.keyLeft = false; G.keyRight = false;
-  G.keyUp = false; G.keyDown = false;
   function isLeft(k) { return k === 'ArrowLeft' || k === 'a' || k === 'A'; }
   function isRight(k) { return k === 'ArrowRight' || k === 'd' || k === 'D'; }
-  function isUp(k) { return k === 'ArrowUp' || k === 'w' || k === 'W'; }
-  function isDown(k) { return k === 'ArrowDown' || k === 's' || k === 'S'; }
   window.addEventListener('keydown', e => {
     if (isLeft(e.key)) { G.keyLeft = true; e.preventDefault(); }
     else if (isRight(e.key)) { G.keyRight = true; e.preventDefault(); }
-    else if (isUp(e.key)) { G.keyUp = true; e.preventDefault(); }
-    else if (isDown(e.key)) { G.keyDown = true; e.preventDefault(); }
     else if (e.key === 'f' || e.key === 'F') { if (!e.repeat) G.toggleRod(); e.preventDefault(); }
   });
   window.addEventListener('keyup', e => {
     if (isLeft(e.key)) G.keyLeft = false;
     else if (isRight(e.key)) G.keyRight = false;
-    else if (isUp(e.key)) G.keyUp = false;
-    else if (isDown(e.key)) G.keyDown = false;
   });
 
   // 鼠标滚轮：调节线长（上滚放长、下滚缩短；缩短部分缠在竹竿上）

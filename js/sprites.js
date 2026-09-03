@@ -131,7 +131,12 @@ const Sprites = {
     ctx.fillRect(x - 10, g - 44, 21, 25);    // 身体
     ctx.fillRect(x - 7, g - 58, 14, 14);     // 头
     if (G.rodHeld) {
-      this.ln(ctx, x + 6, g - 36, rod.baseX, rod.baseY + 18, 5, ink, 'round');   // 手臂→竿根
+      // 手臂伸向握点（握竿时=实际握点，未握=近竿根处），握点画手方块
+      const gt = rod.gripping ? rod.gripT : 0.12;
+      const gx = rod.baseX + (rod.x - rod.baseX) * gt;
+      const gy = rod.baseY + (rod.y - rod.baseY) * gt;
+      this.ln(ctx, x + 6, g - 36, gx, gy, 5, ink, 'round');
+      ctx.fillRect(Math.round(gx) - 3, Math.round(gy) - 3, 6, 6);   // 手
     }
   },
 

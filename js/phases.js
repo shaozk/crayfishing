@@ -19,22 +19,17 @@
   // 钓竿物理 + 线状态机（每帧调用一次）
   G.updatePhase = function (t) {
     const { W, SHORE_X, WATER_Y, ROD_LEN, HOOK_DROP, BAIT_DEPTH, BUCKET } = CFG;
-    const { rod, line, pointer } = G;
+    const { rod, line } = G;
 
-    // 钓竿物理：固定长度，底座沿岸边走动，竿尖指向鼠标方向
-    // 人物沿岸边移动：键盘 ←/→ 连续移动；指针横向移动直接定位
+    // 钓竿物理：肩点随玩家走动；方位角 rod.theta 由握竿拖拽驱动（input.js），松手保持
+    // 人物沿岸边移动：键盘 ←/→ 连续移动；握竿拖动时由鼠标横向定位
     if (G.keyLeft || G.keyRight) {
       G.playerX = clamp(G.playerX + (G.keyRight - G.keyLeft) * CFG.PLAYER_SPEED, 60, SHORE_X - 26);
     }
     rod.baseX = G.playerX;
     rod.baseY = WATER_Y - 80;
-    // 竿尖仰角：键盘 ↑/↓ 微调（鼠标移动时以鼠标为准）
-    if (G.keyUp || G.keyDown) {
-      pointer.y = clamp(pointer.y - (G.keyUp - G.keyDown) * CFG.AIM_SPEED, 120, 255);
-    }
-    const theta = clamp(Math.atan2(pointer.y - rod.baseY, 55), -0.7, 0.84);
-    rod.x = rod.baseX + ROD_LEN * Math.cos(theta);
-    rod.y = rod.baseY + ROD_LEN * Math.sin(theta);
+    rod.x = rod.baseX + ROD_LEN * Math.cos(rod.theta);
+    rod.y = rod.baseY + ROD_LEN * Math.sin(rod.theta);
     // 竹竿负载下垂：钓到虾时竿梢在重力方向额外下垂，虾越重垂得越多，随挣扎抖动
     if (line.phase === 'bite' || line.phase === 'reeling' || line.phase === 'hooked') {
       const hookedCray = G.crays.find(c => c.hooked);

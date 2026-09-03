@@ -11,7 +11,8 @@ const Game = {
   score: 0,
 
   // ---- 钓竿 ----
-  rod: { x: 150, y: 0, baseX: 150, baseY: 0, baitInWater: false },
+  // theta=竿方位角（握竿拖拽驱动，松手保持）；gripT=握点沿竿比例(0=根..1=梢)；gripping=是否握持中
+  rod: { x: 150, y: 0, baseX: 150, baseY: 0, theta: 0.5, gripT: 0.3, gripping: false, baitInWater: false },
   rodHeld: true,                     // F 键切换：是否手持钓竿
   rodGroundX: 150,                   // 放下钓竿时，竿落在地面的位置
 
@@ -46,13 +47,9 @@ const Game = {
   castBait: null,                // 已投入水中的饵料种类（null = 钩上没饵）
   baitDura: {},                  // 各饵料剩余耐久
 
-  // ---- 指针（钓竿限定在岸边） ----
-  pointer: { x: 150, y: 0 },
-
-  // ---- 键盘状态（左右键移动人物，W/S 调竿尖仰角） ----
+  // ---- 键盘状态（左右键移动人物；F 捡放钓竿） ----
   playerX: 150,             // 人物沿岸边的位置
   keyLeft: false, keyRight: false,
-  keyUp: false, keyDown: false,
 
   // ---- 工具 ----
   rand(a, b) { return a + Math.random() * (b - a); },
@@ -79,7 +76,6 @@ const Game = {
   G.rod.y = CFG.WATER_Y - 30;
   G.rod.baseY = CFG.WATER_Y - 80;
   G.baitY = CFG.WATER_Y;
-  G.pointer.y = CFG.WATER_Y - 30;
   for (const k of Object.keys(CFG.CRAY_SPECIES)) G.caughtCounts[k] = 0;
   for (const k of Object.keys(CFG.BAITS)) G.baitDura[k] = CFG.BAITS[k].dur;
 })();

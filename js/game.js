@@ -9,6 +9,7 @@
     G.state = 'playing';
     G.rod.baitInWater = false; G.line.phase = 'idle';
     G.rod.x = 150; G.rod.y = CFG.WATER_Y - 30;
+    G.rod.theta = 0.5; G.rod.gripping = false;
     G.lineLen = CFG.LINE_LEN;
     G.playerX = 150;
     G.rodHeld = true;
