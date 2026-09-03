@@ -1,68 +1,75 @@
-/* ===== 素材库：所有角色与场景的绘制 =====
+/* ===== 素材库：黑白像素风绘制 =====
  * 每个函数都是纯绘制（不修改游戏状态）。
  * G = { rod, line, baitX, baitY, state, crays, ripples, bubbles, particles }
+ *
+ * 颜色纪律：
+ *  - 只允许使用 CFG.PALETTE 灰阶 token，经 pal()/alphaTone() 出口（含昼夜反色）；
+ *  - 原始两极色（CFG.PALETTE.WHITE / INK）仅用于闪烁信号，保证昼夜双背景可见；
+ *  - 本文件不允许出现任何彩色/hex 字面量。
  */
 const Sprites = {
-  // 圆角矩形工具
-  roundRect(ctx, x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
-  },
+  PX: 4,   // 逻辑像素边长：全场景共用 4px 网格
 
-  // 颜色插值：t∈[0,1]，0→a 浅色，1→b 深色（用于按大小调色）
-  mixHex(a, b, t) {
-    const pa = parseInt(a.slice(1), 16);
-    const pb = parseInt(b.slice(1), 16);
-    const r = ((pa >> 16) & 255) + (((pb >> 16) & 255) - ((pa >> 16) & 255)) * t;
-    const g = ((pa >> 8) & 255) + (((pb >> 8) & 255) - ((pa >> 8) & 255)) * t;
-    const bl = (pa & 255) + ((pb & 255) - (pa & 255)) * t;
-    return `rgb(${r | 0},${g | 0},${bl | 0})`;
-  },
-
-  // 颜色工具：clamp01 / hex→[r,g,b] / 三通道插值 / 数组→字符串（供日夜渐变用）
   clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; },
-  hex(c) { return [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)]; },
-  mix3(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; },
-  rgb(c) { return `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`; },
 
-  // 素材安全访问：Assets 未加载/未就绪时返回 null，绝不抛异常
-  _asset(key) {
-    return (typeof Assets !== 'undefined' && Assets.images) ? Assets.images[key] : null;
+  // ---- 像素网格工具 ----
+  snap(v) { return Math.round(v / this.PX) * this.PX; },
+  // 网格对齐的实心矩形（像素风基本笔刷）
+  px(ctx, x, y, w, h, style) {
+    ctx.fillStyle = style;
+    ctx.fillRect(this.snap(x), this.snap(y), this.snap(w) || this.PX, this.snap(h) || this.PX);
   },
-  _crayTint(key) {
-    return (typeof Assets !== 'undefined' && Assets.cray) ? Assets.cray(key) : null;
+  // 棋盘抖动：区域内按 4px 网格铺间隔方块（level 1=稀疏25% 2=标准50%）
+  dither(ctx, x, y, w, h, style, level = 2, phase = 0) {
+    const P = this.PX;
+    const x0 = this.snap(x), y0 = this.snap(y);
+    const x1 = this.snap(x + w), y1 = this.snap(y + h);
+    const mod = level >= 2 ? 2 : 4;
+    ctx.fillStyle = style;
+    for (let yy = y0; yy < y1; yy += P) {
+      for (let xx = x0; xx < x1; xx += P) {
+        if ((xx / P + yy / P + phase) % mod === 0) ctx.fillRect(xx, yy, P, P);
+      }
+    }
   },
 
-  // ---- 天空：随时间变化的渐变 + 云 + 远山（太阳/月亮见 drawCelestial） ----
-  drawSky(ctx, G) {
-    const { W, H, WATER_Y } = CFG;
+  // ---- 昼夜反色：夜晚亮度取反（白天浅底深线 / 夜晚深底浅线，仿恐龙游戏夜间） ----
+  // 量化到 4 档（0, 1/3, 2/3, 1），避免过渡期抖动纹理逐帧闪变
+  nightQ(G) {
     const t = G.time == null ? 0.5 : G.time;
     const p = ((t - 0.25 + 1) % 1) / 0.5 * Math.PI;
-    const el = Math.sin(p);                          // 太阳高度：-1（深夜）~ 1（正午）
-    const dayW = this.clamp01((el - 0.12) / 0.38);   // 1=白昼蓝天
-    const duskW = this.clamp01(1 - Math.abs(el) / 0.4);  // 1=晨昏暖色
-    // 三色调和：夜蓝 ↔ 天蓝，再叠晨昏暖橙
-    const top = this.mix3(this.mix3(this.hex('#0d1b38'), this.hex('#3f9fd6'), dayW), this.hex('#f09a4e'), duskW);
-    const mid = this.mix3(this.mix3(this.hex('#123055'), this.hex('#6fc2e6'), dayW), this.hex('#ffc080'), duskW);
-    const bot = this.mix3(this.mix3(this.hex('#15264a'), this.hex('#a8dff2'), dayW), this.hex('#ffd9a0'), duskW);
-    const g = ctx.createLinearGradient(0, 0, 0, WATER_Y + 20);
-    g.addColorStop(0, this.rgb(top));
-    g.addColorStop(0.5, this.rgb(mid));
-    g.addColorStop(1, this.rgb(bot));
-    ctx.fillStyle = g;
+    const el = Math.sin(p);                          // 太阳高度 -1~1
+    return Math.round(this.clamp01((0.22 - el) / 0.5) * 3) / 3;
+  },
+  // 灰阶反转：只接受 CFG.PALETTE 的 hex（R=G=B）
+  tone(hexColor, q) {
+    const g = parseInt(hexColor.slice(1, 3), 16);
+    const v = Math.round(g + (255 - 2 * g) * q);
+    return `rgb(${v},${v},${v})`;
+  },
+  pal(key, G) { return this.tone(CFG.PALETTE[key], this.nightQ(G)); },
+  alphaTone(key, G, a) {
+    const q = this.nightQ(G);
+    const g = parseInt(CFG.PALETTE[key].slice(1, 3), 16);
+    const v = Math.round(g + (255 - 2 * g) * q);
+    return `rgba(${v},${v},${v},${a})`;
+  },
+
+  // 素材安全访问：Assets 未加载/未就绪时返回 null，绝不抛异常
+  _crayTint(key, q) {
+    return (typeof Assets !== 'undefined' && Assets.cray) ? Assets.cray(key, q || 0) : null;
+  },
+
+  // ---- 天空：平涂纸白 + 像素云 + 远山剪影（太阳/月亮见 drawCelestial） ----
+  drawSky(ctx, G) {
+    const { W, WATER_Y } = CFG;
+    ctx.fillStyle = this.pal('PAPER', G);
     ctx.fillRect(0, 0, W, WATER_Y + 20);
-    // 云（夜里变暗）
-    ctx.fillStyle = `rgba(235, 240, 255, ${0.25 + 0.6 * dayW})`;
-    this.drawCloud(ctx, 120, 55, 1);
-    this.drawCloud(ctx, 430, 90, 0.7);
-    this.drawCloud(ctx, 700, 45, 0.85);
-    // 远山（夜里压暗）
-    ctx.fillStyle = `rgba(${30 + 60 * dayW | 0}, ${70 + 90 * dayW | 0}, ${40 + 50 * dayW | 0}, .55)`;
+    // 晨昏过渡带：地平线上方的抖动横带（昼夜切换时可感知）
+    const q = this.nightQ(G);
+    if (q > 0 && q < 1) this.dither(ctx, 0, WATER_Y - 56, W, 80, this.alphaTone('MID', G, .4), 1);
+    // 远山剪影（平涂，无渐变）
+    ctx.fillStyle = this.pal('LIGHT', G);
     ctx.beginPath();
     ctx.moveTo(0, WATER_Y + 15);
     ctx.lineTo(150, WATER_Y - 45);
@@ -73,9 +80,13 @@ const Sprites = {
     ctx.lineTo(W, WATER_Y + 15);
     ctx.closePath();
     ctx.fill();
+    // 像素云
+    this.drawCloud(ctx, 120, 55, 1, G);
+    this.drawCloud(ctx, 430, 90, 0.7, G);
+    this.drawCloud(ctx, 700, 45, 0.85, G);
   },
 
-  // 日月星辰几何信息：drawCelestial 绘制 / drawLighting 抠遮罩共用，避免位置不一致
+  // 日月星辰几何信息：drawCelestial 绘制，位置与昼夜无关
   celestialInfo(G) {
     const { W, WATER_Y } = CFG;
     const t = G.time == null ? 0.5 : G.time;
@@ -104,328 +115,207 @@ const Sprites = {
     return info;
   },
 
-  // ---- 全局光照：夜晚深蓝调暗、晨昏轻暖色调（画在场景之上、日月之下） ----
-  // 正午无叠加；日落只是轻暖；深夜才明显变暗——避免晨昏时画面发棕发脏
-  drawLighting(ctx, G) {
-    const { W, H } = CFG;
-    const t = G.time == null ? 0.5 : G.time;
-    const p = ((t - 0.25 + 1) % 1) / 0.5 * Math.PI;
-    const el = Math.sin(p);
-    const nightK = this.clamp01(-el * 0.9);              // 0=地平线 1=深夜
-    const warmK = this.clamp01(1 - Math.abs(el) / 0.35); // 1=贴地平线（晨昏）
-    const dark = nightK * 0.55 + warmK * 0.22;           // 夜晚深蓝为主 + 晨昏轻暖
-    const r = 12 + warmK * 150, gg = 18 + warmK * 80, b = 46 - warmK * 20;
-    const info = this.celestialInfo(G);
-    ctx.beginPath();
-    ctx.rect(0, 0, W, H);                          // 整屏
-    if (info.sun) ctx.arc(info.sun.x, info.sun.y, 30, 0, Math.PI * 2);    // 抠掉太阳
-    if (info.moon) ctx.arc(info.moon.x, info.moon.y, 24, 0, Math.PI * 2); // 抠掉月亮
-    if (info.stars) for (const st of info.stars) ctx.arc(st.x, st.y, 2, 0, Math.PI * 2);  // 抠掉星星
-    ctx.fillStyle = `rgba(${r | 0},${gg | 0},${b | 0},${dark})`;
-    ctx.fill('evenodd');
-    // 暗角：边缘轻微压暗，聚焦画面中央
-    const vg = ctx.createRadialGradient(W / 2, H * 0.45, H * 0.35, W / 2, H * 0.5, H * 0.95);
-    vg.addColorStop(0, 'rgba(0,0,0,0)');
-    vg.addColorStop(1, 'rgba(0,0,0,.2)');
-    ctx.fillStyle = vg;
-    ctx.fillRect(0, 0, W, H);
-  },
+  // ---- 全局光照：昼夜反色已并入 pal()/alphaTone()，不再叠全局色层 ----
+  // （原夜晚蓝色叠层 + 径向暗角与黑白像素风冲突，故为空实现；保留调用点以稳定渲染次序）
+  drawLighting(ctx, G) { /* no-op */ },
 
-  // ---- 日月星辰（背景层）：太阳东升西落、月亮夜晚升起、星星闪烁 ----
+  // ---- 日月星辰（背景层）：像素方块日/月 + 闪烁星 ----
+  // 日月为光源：不随昼夜反色（可见时保持最亮/最暗端）
   drawCelestial(ctx, G) {
     const info = this.celestialInfo(G);
     const now = performance.now() / 1000;
-    // 星星
+    // 星星：4px 方点闪烁（仅夜晚出现）
     if (info.stars) {
       for (const st of info.stars) {
         const tw = 0.5 + 0.5 * Math.sin(now * 2 + st.ph);
-        ctx.fillStyle = `rgba(255,255,255,${(info.night - 0.35) / 0.65 * tw})`;
-        ctx.beginPath();
-        ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2);
-        ctx.fill();
+        this.px(ctx, st.x - 2, st.y - 2, 4, 4, `rgba(255,255,255,${((info.night - 0.35) / 0.65 * tw).toFixed(3)})`);
       }
     }
-    // 太阳
+    // 太阳：外圈抖动光晕 + 白色方核
     if (info.sun) {
       const { x: sx, y: sy } = info.sun;
-      const glow = ctx.createRadialGradient(sx, sy, 4, sx, sy, 62);
-      glow.addColorStop(0, 'rgba(255, 235, 160, .8)');
-      glow.addColorStop(1, 'rgba(255, 235, 160, 0)');
-      ctx.fillStyle = glow;
-      ctx.beginPath();
-      ctx.arc(sx, sy, 62, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#ffe98a';
-      ctx.beginPath();
-      ctx.arc(sx, sy, 22, 0, Math.PI * 2);
-      ctx.fill();
+      this.dither(ctx, sx - 24, sy - 24, 48, 48, this.alphaTone('WHITE', G, .5), 1);
+      this.px(ctx, sx - 10, sy - 10, 20, 20, CFG.PALETTE.WHITE);
     }
-    // 月亮
+    // 月亮：纸白方盘 + 墨色环形山
     if (info.moon) {
       const { x: mx, y: my } = info.moon;
-      const glow = ctx.createRadialGradient(mx, my, 4, mx, my, 52);
-      glow.addColorStop(0, 'rgba(215, 230, 255, .75)');
-      glow.addColorStop(1, 'rgba(215, 230, 255, 0)');
-      ctx.fillStyle = glow;
-      ctx.beginPath();
-      ctx.arc(mx, my, 52, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#f2f6ff';                    // 月盘
-      ctx.beginPath();
-      ctx.arc(mx, my, 16, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = 'rgba(190, 205, 230, .6)';    // 环形山
-      ctx.beginPath();
-      ctx.arc(mx - 4, my - 3, 3.2, 0, Math.PI * 2);
-      ctx.arc(mx + 5, my + 4, 2.4, 0, Math.PI * 2);
-      ctx.arc(mx + 1, my + 6, 1.6, 0, Math.PI * 2);
-      ctx.fill();
+      this.dither(ctx, mx - 22, my - 22, 44, 44, this.alphaTone('PAPER', G, .45), 1);
+      this.px(ctx, mx - 10, my - 10, 20, 20, CFG.PALETTE.PAPER);
+      this.px(ctx, mx - 6, my - 6, 4, 4, CFG.PALETTE.INK);
+      this.px(ctx, mx + 2, my + 2, 4, 4, CFG.PALETTE.INK);
+      this.px(ctx, mx - 2, my + 6, 4, 4, CFG.PALETTE.INK);
     }
   },
 
-  drawCloud(ctx, x, y, s) {
-    ctx.beginPath();
-    ctx.arc(x, y, 18 * s, 0, Math.PI * 2);
-    ctx.arc(x + 22 * s, y - 10 * s, 22 * s, 0, Math.PI * 2);
-    ctx.arc(x + 46 * s, y, 17 * s, 0, Math.PI * 2);
-    ctx.fill();
+  // 像素云：三段横条
+  drawCloud(ctx, x, y, s, G) {
+    const c = this.snap(8 * s);
+    const col = this.alphaTone('MID', G, .45);
+    this.px(ctx, x - c, y - c, 3 * c, c, col);
+    this.px(ctx, x - 2 * c, y, 5 * c, c, col);
+    this.px(ctx, x - 1.5 * c, y + c, 4 * c, c, col);
   },
 
-  // ---- 岸边（左）+ 池塘水体（右） ----
+  // ---- 岸边（左）+ 池塘水体（右）：平涂色带 + 深度抖动 ----
   drawShoreAndWater(ctx, G) {
     const { W, H, SHORE_X, WATER_Y } = CFG;
-    // 岸边泥土
-    const dirt = ctx.createLinearGradient(0, WATER_Y, 0, H);
-    dirt.addColorStop(0, '#8d6e4e');
-    dirt.addColorStop(0.4, '#7a5c3f');
-    dirt.addColorStop(1, '#5d452e');
-    ctx.fillStyle = dirt;
-    ctx.fillRect(0, WATER_Y + 4, SHORE_X, H - WATER_Y - 4);
-    // 草皮
-    const grass = ctx.createLinearGradient(0, WATER_Y - 8, 0, WATER_Y + 16);
-    grass.addColorStop(0, '#5cb85c');
-    grass.addColorStop(1, '#3f8f3f');
-    ctx.fillStyle = grass;
-    ctx.fillRect(0, WATER_Y - 8, SHORE_X, 26);
-    // 岸边边缘泥土剖面
-    ctx.fillStyle = '#6b4c33';
-    this.roundRect(ctx, SHORE_X - 14, WATER_Y + 6, 14, 18, 4);
-    ctx.fill();
-    // 小草
-    ctx.strokeStyle = '#6fd06f';
-    ctx.lineWidth = 2;
+    const waterH = H - WATER_Y;
+    // 岸上地面：中灰平涂 + 顶部墨线（地平线）
+    ctx.fillStyle = this.pal('MID', G);
+    ctx.fillRect(0, WATER_Y, SHORE_X, waterH);
+    this.px(ctx, 0, WATER_Y, SHORE_X, this.PX, this.pal('INK', G));
+    // 草皮带：浅灰 + 稀疏抖动 + 草叶
+    ctx.fillStyle = this.pal('LIGHT', G);
+    ctx.fillRect(0, WATER_Y + 4, SHORE_X, 20);
+    this.dither(ctx, 0, WATER_Y + 4, SHORE_X, 20, this.pal('DARK', G), 1);
     for (let i = 0; i < 26; i++) {
       const gx = (i * 41 + 15) % SHORE_X;
-      const gy = WATER_Y - 4 + (i * 17) % 8;
-      const gh = 6 + (i % 3) * 3;
-      ctx.beginPath();
-      ctx.moveTo(gx, gy);
-      ctx.quadraticCurveTo(gx + 3, gy - gh / 2, gx + Math.sin(i) * 4, gy - gh);
-      ctx.stroke();
+      const gy = WATER_Y + ((i * 17) % 12) + 4;
+      this.px(ctx, gx, gy, this.PX, 8, this.pal('DARK', G));
     }
-    // 岸边小石头
-    ctx.fillStyle = 'rgba(140, 120, 100, .8)';
+    // 岸边石头：方块石
     for (let i = 0; i < 4; i++) {
       const sx = 20 + i * 60, sy = WATER_Y + 26 + (i % 2) * 14;
-      const sr = 5 + (i % 2) * 4;
-      ctx.beginPath();
-      ctx.ellipse(sx, sy, sr, sr * 0.65, 0, 0, Math.PI * 2);
-      ctx.fill();
+      const sw = 12 + (i % 2) * 8;
+      this.px(ctx, sx, sy, sw, 8, this.pal(i % 2 ? 'MID' : 'LIGHT', G));
     }
-    // 灌木丛
-    ctx.fillStyle = 'rgba(44, 130, 60, .9)';
-    ctx.beginPath();
-    ctx.arc(55, WATER_Y - 6, 16, Math.PI, 0);
-    ctx.arc(85, WATER_Y - 4, 13, Math.PI, 0);
-    ctx.fill();
+    // 灌木丛：两簇叠置方块
+    this.px(ctx, 40, WATER_Y - 12, 28, 12, this.pal('DARK', G));
+    this.px(ctx, 46, WATER_Y - 20, 16, 8, this.pal('DARK', G));
+    this.dither(ctx, 40, WATER_Y - 12, 28, 12, this.pal('LIGHT', G), 1);
+    // 岸缘剖面（水陆交界）
+    this.px(ctx, SHORE_X - 16, WATER_Y + 4, 16, 24, this.pal('DARK', G));
 
-    // 池塘水体
-    const water = ctx.createLinearGradient(0, WATER_Y, 0, H);
-    water.addColorStop(0, 'rgba(50, 135, 175, .5)');
-    water.addColorStop(0.5, 'rgba(35, 105, 150, .6)');
-    water.addColorStop(1, 'rgba(25, 75, 115, .75)');
-    ctx.fillStyle = water;
-    ctx.fillRect(SHORE_X, WATER_Y, W - SHORE_X, H - WATER_Y);
-    // 水底淤泥
-    const mud = ctx.createLinearGradient(0, H - 60, 0, H);
-    mud.addColorStop(0, '#8d6e4e');
-    mud.addColorStop(1, '#6b5238');
-    ctx.fillStyle = mud;
-    ctx.fillRect(SHORE_X, H - 60, W - SHORE_X, 60);
-    // 水底石头
-    ctx.fillStyle = 'rgba(120, 100, 80, .55)';
+    // 池塘水体：上浅下深两段平涂 + 抖动过渡（虾野仍清晰可见）
+    ctx.fillStyle = this.pal('LIGHT', G);
+    ctx.fillRect(SHORE_X, WATER_Y, W - SHORE_X, waterH * 0.45);
+    ctx.fillStyle = this.pal('MID', G);
+    ctx.fillRect(SHORE_X, WATER_Y + waterH * 0.45, W - SHORE_X, waterH * 0.55);
+    this.dither(ctx, SHORE_X, WATER_Y + waterH * 0.4, W - SHORE_X, waterH * 0.12, this.pal('LIGHT', G), 2);
+    this.dither(ctx, SHORE_X, WATER_Y + waterH * 0.52, W - SHORE_X, waterH * 0.12, this.pal('DARK', G), 1);
+    // 水底淤泥带 + 底石
+    ctx.fillStyle = this.pal('DARK', G);
+    ctx.fillRect(SHORE_X, H - 44, W - SHORE_X, 44);
+    this.dither(ctx, SHORE_X, H - 44, W - SHORE_X, 44, this.pal('MID', G), 1);
     for (let i = 0; i < 10; i++) {
       const sx = SHORE_X + 30 + ((i * 173 + 40) % (W - SHORE_X - 60));
-      const sy = H - 40 - (i % 3) * 10;
-      const sr = 6 + (i % 3) * 4;
-      ctx.beginPath();
-      ctx.ellipse(sx, sy, sr, sr * 0.7, 0, 0, Math.PI * 2);
-      ctx.fill();
+      const sy = H - 36 - (i % 3) * 10;
+      this.px(ctx, sx, sy, 12 + (i % 3) * 4, 8, this.pal(i % 2 ? 'LIGHT' : 'MID', G));
     }
   },
 
-  // ---- 水草（随波摆动） ----
+  // ---- 水草（方块链随波摆动） ----
   drawPondDetails(ctx, G) {
     const { W, H, SHORE_X } = CFG;
+    const now = performance.now() / 1000;
     for (let i = 0; i < 14; i++) {
       const gx = SHORE_X + 30 + ((i * 97 + 20) % (W - SHORE_X - 60));
       const gy = H - 46 - (i % 2) * 8;
-      const gh = 30 + (i % 3) * 14;
-      ctx.strokeStyle = i % 2 ? '#3f8f3f' : '#2f7a2f';
-      ctx.lineWidth = 3;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(gx, gy);
-      ctx.quadraticCurveTo(gx + Math.sin(performance.now() / 900 + i) * 4, gy - gh / 2, gx + Math.sin(performance.now() / 700 + i * 2) * 7, gy - gh);
-      ctx.stroke();
+      const cells = Math.min(6, 4 + (i % 3));
+      const col = this.pal(i % 2 ? 'DARK' : 'MID', G);
+      for (let c = 0; c < cells; c++) {
+        const sway = Math.sin(now / 800 + i + c * 0.6) * 4;
+        this.px(ctx, gx + sway, gy - c * this.PX, this.PX, this.PX, col);
+      }
     }
   },
 
   // ---- 龙虾洞（水底泥岸上的洞穴，虾可钻进钻出） ----
   drawHoles(ctx, G) {
     for (const h of CFG.HOLES) {
-      // 洞口外沿的土堆
-      ctx.fillStyle = 'rgba(120, 96, 70, .9)';
-      ctx.beginPath();
-      ctx.ellipse(h.x + 8, h.y + 3, 12, 7, 0, 0, Math.PI * 2);
-      ctx.fill();
-      // 洞口（深色椭圆）
-      ctx.fillStyle = '#3b2a1c';
-      ctx.beginPath();
-      ctx.ellipse(h.x, h.y, 13, 6.5, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = 'rgba(20, 12, 8, .9)';
-      ctx.beginPath();
-      ctx.ellipse(h.x, h.y - 1, 9, 4.2, 0, 0, Math.PI * 2);
-      ctx.fill();
+      // 土堆
+      this.px(ctx, h.x - 6, h.y - 4, 32, 14, this.pal('MID', G));
+      this.dither(ctx, h.x - 6, h.y - 4, 32, 14, this.pal('LIGHT', G), 1);
+      // 洞口
+      this.px(ctx, h.x - 12, h.y - 4, 24, 10, this.pal('INK', G));
     }
   },
 
-  // ---- 水面（波浪 + 高光） ----
+  // ---- 水面（漂移的虚线波纹行） ----
   drawWaterSurface(ctx, G) {
     const { W, SHORE_X, WATER_Y } = CFG;
-    ctx.strokeStyle = 'rgba(255,255,255,.18)';
-    ctx.lineWidth = 1.5;
     const t = performance.now() / 1000;
     for (let i = 0; i < 6; i++) {
-      const wy = WATER_Y + 12 + i * 16;
-      ctx.beginPath();
-      for (let x = SHORE_X; x <= W; x += 8) {
-        const y = wy + Math.sin(x / 34 + t * 1.4 + i * 1.7) * 3;
-        x === SHORE_X ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      const wy = WATER_Y + 16 + i * 18;
+      const off = (t * 22 + i * 37) % 40;
+      for (let x = SHORE_X - 40 + off; x < W; x += 40) {
+        if (x < SHORE_X) continue;
+        this.px(ctx, x, wy, 16, this.PX, this.alphaTone('INK', G, .3));
       }
-      ctx.stroke();
     }
-    ctx.fillStyle = 'rgba(255,255,255,.12)';
+    // 水面高光短划
     for (let i = 0; i < 5; i++) {
       const hx = SHORE_X + 40 + ((i * 220 + 60 + Math.sin(t * 0.6 + i) * 30) % (W - SHORE_X - 80));
-      ctx.beginPath();
-      ctx.ellipse(hx, WATER_Y + 6 + (i % 2) * 10, 26, 4, 0, 0, Math.PI * 2);
-      ctx.fill();
+      this.px(ctx, hx, WATER_Y + 8 + (i % 2) * 10, 24, this.PX, this.alphaTone('INK', G, .2));
     }
   },
 
-  // ---- 岸边钓鱼人 ----
+  // ---- 岸边钓鱼人（像素小人，持竿手臂指向竿根） ----
   drawPlayer(ctx, G) {
     const { WATER_Y } = CFG;
     const rod = G.rod;
-    const px = rod.baseX - 16;   // 玩家中心
-    const py = WATER_Y + 6;      // 脚底
+    const x = rod.baseX - 16;   // 玩家中心
+    const y = WATER_Y + 6;      // 脚底
     // 影子
     ctx.fillStyle = 'rgba(0,0,0,.15)';
     ctx.beginPath();
-    ctx.ellipse(px, py, 16, 4, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y, 16, 4, 0, 0, Math.PI * 2);
     ctx.fill();
     // 腿
-    ctx.strokeStyle = '#3e2723';
-    ctx.lineWidth = 5;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(px - 6, py - 20);
-    ctx.lineTo(px - 11, py);
-    ctx.moveTo(px + 6, py - 20);
-    ctx.lineTo(px + 11, py);
-    ctx.stroke();
-    // 身体
-    ctx.fillStyle = '#2e86de';
-    ctx.beginPath();
-    ctx.ellipse(px, py - 42, 15, 18, 0, 0, Math.PI * 2);
-    ctx.fill();
+    this.px(ctx, x - 10, y - 20, 5, 20, this.pal('INK', G));
+    this.px(ctx, x + 5, y - 20, 5, 20, this.pal('INK', G));
+    // 身体 + 腰带
+    this.px(ctx, x - 12, y - 46, 24, 26, this.pal('MID', G));
+    this.px(ctx, x - 12, y - 26, 24, this.PX, this.pal('DARK', G));
+    this.dither(ctx, x - 12, y - 46, 24, 26, this.pal('LIGHT', G), 1);
     // 手臂伸向钓竿（钓竿放下时不画手臂）
     if (G.rodHeld) {
-      ctx.strokeStyle = '#2e86de';
+      ctx.strokeStyle = this.pal('MID', G);
       ctx.lineWidth = 6;
+      ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.moveTo(px + 13, py - 48);
-      ctx.quadraticCurveTo(rod.baseX - 4, py - 46, rod.baseX, rod.baseY + 6);
+      ctx.moveTo(x + 10, y - 42);
+      ctx.quadraticCurveTo(rod.baseX - 4, y - 44, rod.baseX, rod.baseY + 6);
       ctx.stroke();
-      // 手
-      ctx.fillStyle = '#f5cba7';
-      ctx.beginPath();
-      ctx.arc(rod.baseX, rod.baseY + 6, 4, 0, Math.PI * 2);
-      ctx.fill();
+      this.px(ctx, rod.baseX - 4, rod.baseY + 2, 8, 8, this.pal('PAPER', G));   // 手
     }
-    // 头
-    ctx.fillStyle = '#f5cba7';
-    ctx.beginPath();
-    ctx.arc(px, py - 62, 11, 0, Math.PI * 2);
-    ctx.fill();
-    // 帽子
-    ctx.fillStyle = '#c0392b';
-    ctx.beginPath();
-    ctx.ellipse(px, py - 67, 14, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(px, py - 71, 8, Math.PI, 0);
-    ctx.fill();
+    // 头 + 眼
+    this.px(ctx, x - 8, y - 62, 16, 16, this.pal('PAPER', G));
+    this.px(ctx, x + 3, y - 57, this.PX, this.PX, this.pal('INK', G));
+    // 帽（宽檐 + 冠）
+    this.px(ctx, x - 12, y - 66, 24, this.PX, this.pal('DARK', G));
+    this.px(ctx, x - 8, y - 74, 16, 8, this.pal('DARK', G));
   },
 
-  // ---- 岸边水桶（放虾的目标） ----
+  // ---- 岸边水桶（放虾的目标）：像素桶 + 投放就绪虚线框呼吸 ----
   drawBucket(ctx, G) {
     const b = CFG.BUCKET;
     const t = performance.now() / 1000;
-    // 可投放时的金色光晕
+    // 可投放：墨色虚线方框呼吸（昼夜经 pal 反色均可见）
     if (G.dropReady) {
-      const pulse = 0.28 + 0.22 * Math.sin(t * 6);
-      ctx.fillStyle = `rgba(255, 214, 102, ${pulse})`;
-      ctx.beginPath();
-      ctx.ellipse(b.x, b.y, 46, 38, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 214, 102, .8)';
+      const r = 36 + Math.sin(t * 4) * 4;
+      ctx.strokeStyle = this.pal('INK', G);
       ctx.lineWidth = 2;
-      ctx.setLineDash([6, 5]);
-      ctx.beginPath();
-      ctx.ellipse(b.x, b.y, 30, 24, 0, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(this.snap(b.x - r), this.snap(b.y - r * 0.85), this.snap(r * 2), this.snap(r * 1.7));
       ctx.setLineDash([]);
     }
-    // 桶身（Twemoji 水桶精灵；未加载时回退程序化）
-    const bucketImg = this._asset('bucket');
-    if (bucketImg) {
-      const bw = 62;
-      ctx.drawImage(bucketImg, b.x - bw / 2, b.y - bw / 2, bw, bw);
-    } else {
-      // 桶身
-      ctx.fillStyle = '#5d4037';
-      ctx.fillRect(b.x - 20, b.y - 18, 40, 36);
-      // 桶箍
-      ctx.fillStyle = '#8d6e63';
-      ctx.fillRect(b.x - 20, b.y - 8, 40, 4);
-      ctx.fillRect(b.x - 20, b.y + 6, 40, 4);
-      // 桶底
-      ctx.fillStyle = '#3e2723';
-      ctx.fillRect(b.x - 18, b.y + 16, 36, 3);
-      // 桶口
-      ctx.fillStyle = '#4e342e';
-      ctx.beginPath();
-      ctx.ellipse(b.x, b.y - 18, 20, 6, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#3a2a22';
-      ctx.beginPath();
-      ctx.ellipse(b.x, b.y - 18, 17, 4.5, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    // 桶里探头的小龙虾（小号染色龙虾精灵）
+    // 桶身：上宽下窄三段
+    this.px(ctx, b.x - 20, b.y - 14, 40, 10, this.pal('MID', G));
+    this.px(ctx, b.x - 18, b.y - 4, 36, 12, this.pal('MID', G));
+    this.px(ctx, b.x - 16, b.y + 8, 32, 8, this.pal('DARK', G));
+    // 桶箍与板条
+    this.px(ctx, b.x - 19, b.y + 2, 38, this.PX, this.pal('DARK', G));
+    this.dither(ctx, b.x - 18, b.y - 4, 36, 12, this.pal('LIGHT', G), 1);
+    // 桶口（深色内空）
+    this.px(ctx, b.x - 20, b.y - 19, 40, 5, this.pal('DARK', G));
+    this.px(ctx, b.x - 15, b.y - 19, 30, 4, this.pal('INK', G));
+    // 轮廓
+    ctx.strokeStyle = this.pal('INK', G);
+    ctx.lineWidth = 2;
+    ctx.strokeRect(b.x - 20, b.y - 19, 40, 35);
+    // 桶里探头的小龙虾（像素精灵，含昼夜档位）
     const peek = G.bucketCrays.slice(-3);
     peek.forEach((c, i) => {
       const pxc = b.x - 10 + i * 10;
@@ -433,35 +323,13 @@ const Sprites = {
       const bob2 = Math.sin(t * 3 + i * 2) * 1.5;
       ctx.save();
       ctx.translate(pxc, pyc + bob2);
-      const tinted = this._crayTint(c.species);
-      if (tinted) {
+      const tex = this._crayTint(c.species, this.nightQ(G));
+      if (tex) {
         const w2 = Math.min(c.size * 1.4, 22);
-        ctx.drawImage(tinted, -w2 / 2, -w2 / 2, w2, w2);
-      } else {
-        const s = Math.min(c.size * 0.5, 9);
-        const shade = Math.max(0, Math.min(1, (c.size - 10) / 16));
-        const sp = CFG.CRAY_SPECIES[c.species] || CFG.CRAY_SPECIES.red;
-        // 头（颜色随种类）
-        ctx.fillStyle = this.mixHex(sp.body[0][1], sp.body[1][1], shade);
-        ctx.beginPath();
-        ctx.arc(0, 0, s, 0, Math.PI * 2);
-        ctx.fill();
-        // 眼睛
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.arc(s * 0.35, -s * 0.25, s * 0.22, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#111';
-        ctx.beginPath();
-        ctx.arc(s * 0.42, -s * 0.25, s * 0.1, 0, Math.PI * 2);
-        ctx.fill();
-        // 触须
-        ctx.strokeStyle = this.mixHex('#f5a33c', '#a93226', shade);
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(0, -s * 0.5);
-        ctx.quadraticCurveTo(s * 0.6, -s * 1.3, s * 0.9, -s * 1.1);
-        ctx.stroke();
+        const h2 = w2 * (16 / 26);   // 像素精灵为 26x16 网格，保持宽高比
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(tex, -w2 / 2, -h2 / 2, w2, h2);
+        ctx.imageSmoothingEnabled = true;
       }
       ctx.restore();
     });
@@ -470,65 +338,44 @@ const Sprites = {
   // ---- 饵料盒（水桶旁的小木盒，展示当前饵料） ----
   drawBaitBox(ctx, G) {
     const b = CFG.BAITBOX;
-    const bait = CFG.BAITS[G.activeBait] || CFG.BAITS.snail_s;
-    // 盒身
-    ctx.fillStyle = '#8a6a44';
-    ctx.fillRect(b.x - 20, b.y - 14, 40, 28);
+    // 盒身 + 盒口
+    this.px(ctx, b.x - 20, b.y - 12, 40, 26, this.pal('MID', G));
+    this.px(ctx, b.x - 20, b.y - 16, 40, 6, this.pal('DARK', G));
+    this.px(ctx, b.x - 12, b.y - 16, 24, 4, this.pal('INK', G));
     // 盒底阴影
-    ctx.fillStyle = 'rgba(60, 40, 22, .6)';
-    ctx.fillRect(b.x - 20, b.y + 12, 40, 3);
-    // 盒口（椭圆开口）
-    ctx.fillStyle = '#9c7b52';
-    ctx.beginPath();
-    ctx.ellipse(b.x, b.y - 14, 20, 5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#4e3a24';
-    ctx.beginPath();
-    ctx.ellipse(b.x, b.y - 14, 15, 3.4, 0, 0, Math.PI * 2);
-    ctx.fill();
+    this.px(ctx, b.x - 20, b.y + 14, 40, this.PX, this.alphaTone('INK', G, .25));
+    // 轮廓
+    ctx.strokeStyle = this.pal('INK', G);
+    ctx.lineWidth = 2;
+    ctx.strokeRect(b.x - 20, b.y - 16, 40, 32);
     // 盒内饵料（按当前类型画小图标）
-    this.drawBait(ctx, b.x, b.y - 14, G.activeBait);
+    this.drawBait(ctx, b.x, b.y - 14, G.activeBait, G);
   },
 
-  // ---- 荷叶（水面浮叶，钓起的虾碰到会掉落） ----
+  // ---- 荷叶（水面浮叶，钓起的虾碰到会掉落）：光栅化圆 + 墨色缺口 ----
   drawLeaves(ctx, G) {
     const t = performance.now() / 1000;
     for (const leaf of CFG.LEAVES) {
-      const bob = Math.sin(t * 1.2 + leaf.x * 0.01) * 1.5;   // 随波轻摆
-      ctx.save();
-      ctx.translate(leaf.x, leaf.y + bob);
-      // 叶片（径向渐变）
-      const g = ctx.createRadialGradient(-leaf.r * 0.3, -leaf.r * 0.3, 2, 0, 0, leaf.r);
-      g.addColorStop(0, '#8ed05a');
-      g.addColorStop(1, '#2f8f3f');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(0, 0, leaf.r, 0, Math.PI * 2);
-      ctx.fill();
-      // 边缘缺口（深色豁口）
-      ctx.fillStyle = 'rgba(20, 90, 40, .55)';
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.arc(0, 0, leaf.r * 0.9, Math.PI * 0.12, Math.PI * 0.5);
-      ctx.closePath();
-      ctx.fill();
-      // 叶脉
-      ctx.strokeStyle = 'rgba(20, 90, 40, .5)';
-      ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      ctx.moveTo(-leaf.r * 0.65, 0);
-      ctx.lineTo(leaf.r * 0.65, 0);
-      ctx.moveTo(0, -leaf.r * 0.65);
-      ctx.lineTo(0, leaf.r * 0.65);
-      ctx.stroke();
-      ctx.restore();
+      const bob = Math.sin(t * 1.2 + leaf.x * 0.01) * 1.5;
+      const cx = leaf.x, cy = leaf.y + bob, r = leaf.r;
+      for (let dy = -r; dy < r; dy += this.PX) {
+        const w = Math.sqrt(Math.max(0, r * r - dy * dy)) * 2;
+        this.px(ctx, cx - w / 2, cy + dy, w, this.PX, this.pal('PAPER', G));
+      }
+      // 边缘缺口（45° 楔形，墨色切缝）
+      for (let i = 0; i < r * 0.7; i += this.PX) {
+        this.px(ctx, cx + i * 0.72, cy + i * 0.72, this.PX, this.PX, this.pal('INK', G));
+      }
+      // 叶脉十字
+      this.px(ctx, cx - r * 0.6, cy - 2, r * 1.2, this.PX, this.pal('DARK', G));
+      this.px(ctx, cx - 2, cy - r * 0.6, this.PX, r * 1.2, this.pal('DARK', G));
     }
   },
 
-  // ---- 波纹 ----
+  // ---- 波纹：墨色圆环淡出 ----
   drawRipples(ctx, G) {
     for (const r of G.ripples) {
-      ctx.strokeStyle = `rgba(255,255,255,${0.5 * (r.life / 40)})`;
+      ctx.strokeStyle = this.alphaTone('INK', G, 0.5 * (r.life / 40));
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(r.x, r.y, Math.min(r.r, r.max), 0, Math.PI * 2);
@@ -536,65 +383,41 @@ const Sprites = {
     }
   },
 
-  // ---- 鱼饵（按种类绘制：田螺/青蛙/猪肝） ----
-  drawBait(ctx, x, y, key) {
-    // Twemoji 精灵（青蛙/田螺/猪肝），未加载时回退程序化绘制
-    const imgKey = key === 'snail_s' || key === 'snail_l' ? 'snail'
-      : key === 'frog_s' || key === 'frog_l' ? 'frog'
-      : key === 'liver' ? 'meat' : null;
-    const img = imgKey ? this._asset(imgKey) : null;
+  // ---- 鱼饵（按种类像素绘制：田螺/青蛙/猪肝） ----
+  drawBait(ctx, x, y, key, G) {
     const big = key === 'snail_l' || key === 'frog_l';
-    if (img) {
-      const w = big ? 30 : 24;
-      ctx.drawImage(img, x - w / 2, y - w / 2, w, w);
-      return;
-    }
-    // ---- 兜底：程序化小图标 ----
     if (key === 'frog_s' || key === 'frog_l') {
-      const k = key === 'frog_l' ? 1.35 : 1;   // 大青蛙更大
-      ctx.fillStyle = '#6ab04c';               // 青蛙：绿身 + 眼睛
-      ctx.beginPath();
-      ctx.ellipse(x, y, 4.5 * k, 3.5 * k, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.arc(x + 2 * k, y - 2 * k, 1.6 * k, 0, Math.PI * 2);
-      ctx.arc(x - 2 * k, y - 2 * k, 1.6 * k, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#222';
-      ctx.beginPath();
-      ctx.arc(x + 2.2 * k, y - 2.2 * k, 0.8 * k, 0, Math.PI * 2);
-      ctx.arc(x - 1.8 * k, y - 2.2 * k, 0.8 * k, 0, Math.PI * 2);
-      ctx.fill();
+      // 青蛙：浅灰身体 + 墨点双眼
+      const bw = this.snap(big ? 24 : 16);
+      const bh = this.snap(big ? 12 : 8);
+      this.px(ctx, x - bw / 2, y - bh / 2, bw, bh, this.pal('LIGHT', G));
+      const es = this.snap(big ? 8 : 4);
+      this.px(ctx, x - bw / 2, y - bh / 2 - es, es, es, this.pal('LIGHT', G));
+      this.px(ctx, x + bw / 2 - es, y - bh / 2 - es, es, es, this.pal('LIGHT', G));
+      this.px(ctx, x - bw / 2, y - bh / 2 - es, this.PX, this.PX, this.pal('INK', G));
+      this.px(ctx, x + bw / 2 - this.PX, y - bh / 2 - es, this.PX, this.PX, this.pal('INK', G));
     } else if (key === 'liver') {
-      ctx.fillStyle = '#7e2f22';               // 猪肝：暗红肉块
+      // 猪肝：深灰肉块 + 纸白油花
+      const bw = this.snap(big ? 20 : 14);
+      const bh = this.snap(10);
+      this.px(ctx, x - bw / 2, y - bh / 2, bw, bh, this.pal('DARK', G));
+      this.px(ctx, x - bw / 4, y - bh / 4, this.PX, this.PX, this.pal('PAPER', G));
+      this.px(ctx, x + bw / 8, y, this.PX, this.PX, this.pal('PAPER', G));
+    } else {
+      // 田螺：纸白方壳 + 墨色螺旋
+      const r = this.snap(big ? 8 : 6);
+      this.px(ctx, x - r, y - r, r * 2, r * 2, this.pal('PAPER', G));
+      ctx.strokeStyle = this.pal('INK', G);
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(x - 4, y - 1);
-      ctx.quadraticCurveTo(x - 1, y - 4, x + 3, y - 1.5);
-      ctx.quadraticCurveTo(x + 5, y + 2, x + 2, y + 4);
-      ctx.quadraticCurveTo(x - 3, y + 5, x - 4, y + 2);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = 'rgba(255,180,150,.35)'; // 光泽
-      ctx.beginPath();
-      ctx.arc(x - 1, y, 1.8, 0, Math.PI * 2);
-      ctx.fill();
-    } else {                                   // 田螺：壳 + 螺旋纹
-      const k = key === 'snail_l' ? 1.3 : 1;   // 大田螺更大
-      ctx.fillStyle = '#a08c68';
-      ctx.beginPath();
-      ctx.arc(x, y, 3.6 * k, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#6f5f43';
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.arc(x, y, 1.6 * k, 0.8, Math.PI * 2.2);
+      ctx.arc(x, y, r * 0.45, 0.8, Math.PI * 2.2);
       ctx.stroke();
+      this.px(ctx, x - r + this.PX, y + r - this.PX * 2, this.PX * 2, this.PX, this.pal('DARK', G));   // 壳口
     }
   },
 
   // 地上的钓竿：放下（F 键）后竿躺在地面，靠近才能捡起
-  drawGroundRod(ctx, x) {
+  drawGroundRod(ctx, x, G) {
     const gy = CFG.WATER_Y + 18;   // 地面高度
     const x0 = x - 68, x1 = x + 58, y0 = gy + 9, y1 = gy - 1;
     // 影子
@@ -602,8 +425,8 @@ const Sprites = {
     ctx.beginPath();
     ctx.ellipse((x0 + x1) / 2, gy + 10, 66, 5, 0, 0, Math.PI * 2);
     ctx.fill();
-    // 竹竿本体（略微弯曲地躺着）
-    ctx.strokeStyle = '#b08948';
+    // 竿本体（略微弯曲地躺着）
+    ctx.strokeStyle = this.pal('LIGHT', G);
     ctx.lineWidth = 5;
     ctx.lineCap = 'round';
     ctx.beginPath();
@@ -611,24 +434,21 @@ const Sprites = {
     ctx.quadraticCurveTo((x0 + x1) / 2, gy + 8, x1, y1);
     ctx.stroke();
     // 竹节
-    ctx.strokeStyle = 'rgba(92, 64, 34, .55)';
-    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = this.alphaTone('DARK', G, .8);
+    ctx.lineWidth = 2;
     for (const f of [0.3, 0.55, 0.8]) {
-      const px = x0 + (x1 - x0) * f;
-      const py = y0 + (y1 - y0) * f;
+      const jx = x0 + (x1 - x0) * f;
+      const jy = y0 + (y1 - y0) * f;
       ctx.beginPath();
-      ctx.moveTo(px - 4, py + 1);
-      ctx.lineTo(px + 4, py - 1);
+      ctx.moveTo(jx - 4, jy + 1);
+      ctx.lineTo(jx + 4, jy - 1);
       ctx.stroke();
     }
-    // 竿尖装饰
-    ctx.fillStyle = '#ff8c42';
-    ctx.beginPath();
-    ctx.arc(x1, y1, 3.5, 0, Math.PI * 2);
-    ctx.fill();
+    // 竿尖：墨色方头
+    this.px(ctx, x1 - 5, y1 - 5, 10, 10, this.pal('INK', G));
     // 线尾（垂在地上）
-    ctx.strokeStyle = 'rgba(240, 240, 240, .8)';
-    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = this.alphaTone('PAPER', G, .8);
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(x1, y1);
     ctx.quadraticCurveTo(x1 + 14, y1 + 6, x1 + 8, y1 + 14);
@@ -640,10 +460,10 @@ const Sprites = {
     const { rod, line, baitX, baitY, state } = G;
     if (!G.rodHeld) {
       // 钓竿已放下（F 键）：竿躺在地面上，不绘制手持竿/鱼线/饵
-      this.drawGroundRod(ctx, G.rodGroundX);
+      this.drawGroundRod(ctx, G.rodGroundX, G);
       return;
     }
-    // 钓竿（模拟竹竿）：竿梢下垂在 game.js 的物理更新里计算，这里画竿身弧线。
+    // 钓竿：竿梢下垂在 game.js 的物理更新里计算，这里画竿身弧线。
     // 无负载时笔直；负载时竿身向重力方向弯曲（沿竿的垂直方向、指向 +y 一侧偏移）
     const tip = { x: rod.x, y: rod.y };
     const loaded = line.phase === 'bite' || line.phase === 'reeling' || line.phase === 'hooked';
@@ -658,7 +478,7 @@ const Sprites = {
       cx += -dy / rodLen * flex;
       cy += dx / rodLen * flex;
     }
-    ctx.strokeStyle = '#b08948';      // 竹竿黄褐色
+    ctx.strokeStyle = this.pal('LIGHT', G);      // 竿身
     ctx.lineWidth = 5;
     ctx.lineCap = 'round';
     ctx.beginPath();
@@ -666,46 +486,43 @@ const Sprites = {
     ctx.quadraticCurveTo(cx, cy, tip.x, tip.y);
     ctx.stroke();
     // 竹节纹理（沿竿身垂直于切线的短横纹）
-    ctx.strokeStyle = 'rgba(92, 64, 34, .55)';
-    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = this.alphaTone('DARK', G, .8);
+    ctx.lineWidth = 2;
     for (const t of [0.3, 0.55, 0.8]) {
       const mt = 1 - t;
-      const px = mt * mt * rod.baseX + 2 * mt * t * cx + t * t * tip.x;
-      const py = mt * mt * rod.baseY + 2 * mt * t * cy + t * t * tip.y;
+      const jx = mt * mt * rod.baseX + 2 * mt * t * cx + t * t * tip.x;
+      const jy = mt * mt * rod.baseY + 2 * mt * t * cy + t * t * tip.y;
       const tx = 2 * mt * (cx - rod.baseX) + 2 * t * (tip.x - cx);
       const ty = 2 * mt * (cy - rod.baseY) + 2 * t * (tip.y - cy);
       const tl = Math.hypot(tx, ty) || 1;
       ctx.beginPath();
-      ctx.moveTo(px - ty / tl * 4, py + tx / tl * 4);
-      ctx.lineTo(px + ty / tl * 4, py - tx / tl * 4);
+      ctx.moveTo(jx - ty / tl * 4, jy + tx / tl * 4);
+      ctx.lineTo(jx + ty / tl * 4, jy - tx / tl * 4);
       ctx.stroke();
     }
     // 缠在竹竿上的鱼线：缩短时多余线缠在竿身下部（线捆绑在竹竿上，需显示这部分）
     const wrapped = Math.max(0, CFG.LINE_LEN - G.lineLen);
     if (wrapped > 4) {
       const n = Math.min(Math.floor(wrapped / 12), 12);
-      ctx.strokeStyle = 'rgba(235, 240, 250, .85)';
-      ctx.lineWidth = 3.2;
+      ctx.strokeStyle = this.alphaTone('PAPER', G, .9);
+      ctx.lineWidth = 3;
       ctx.lineCap = 'round';
       for (let i = 0; i < n; i++) {
         const t = n === 1 ? 0.1 : 0.05 + i * (0.38 / (n - 1));   // 集中在竿身下部
         const mt = 1 - t;
-        const px = mt * mt * rod.baseX + 2 * mt * t * cx + t * t * tip.x;
-        const py = mt * mt * rod.baseY + 2 * mt * t * cy + t * t * tip.y;
+        const wx = mt * mt * rod.baseX + 2 * mt * t * cx + t * t * tip.x;
+        const wy = mt * mt * rod.baseY + 2 * mt * t * cy + t * t * tip.y;
         const tx = 2 * mt * (cx - rod.baseX) + 2 * t * (tip.x - cx);
         const ty = 2 * mt * (cy - rod.baseY) + 2 * t * (tip.y - cy);
         const tl = Math.hypot(tx, ty) || 1;
         ctx.beginPath();
-        ctx.moveTo(px - ty / tl * 5, py + tx / tl * 5);
-        ctx.lineTo(px + ty / tl * 5, py - tx / tl * 5);
+        ctx.moveTo(wx - ty / tl * 5, wy + tx / tl * 5);
+        ctx.lineTo(wx + ty / tl * 5, wy - tx / tl * 5);
         ctx.stroke();
       }
     }
-    // 竿尖装饰
-    ctx.fillStyle = '#ff8c42';
-    ctx.beginPath();
-    ctx.arc(tip.x, tip.y, 3.5, 0, Math.PI * 2);
-    ctx.fill();
+    // 竿尖：墨色方头
+    this.px(ctx, tip.x - 5, tip.y - 5, 10, 10, this.pal('INK', G));
 
     // 鱼线（固定长度，从竿尖垂向饵）
     if (rod.baitInWater) {
@@ -713,8 +530,8 @@ const Sprites = {
       const by = baitY;
       const midX = (tip.x + bx) / 2 + Math.sin(performance.now() / 500) * 2;
       const midY = (tip.y + by) / 2;
-      ctx.strokeStyle = 'rgba(240, 240, 240, .8)';
-      ctx.lineWidth = 1.4;
+      ctx.strokeStyle = this.alphaTone('PAPER', G, .8);
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(tip.x, tip.y);
       ctx.quadraticCurveTo(midX, midY, bx, by);
@@ -722,16 +539,20 @@ const Sprites = {
 
       // 鱼饵（按种类绘制）—— 上钩拖出/投放阶段不画，虾代替饵挂在钩上
       if (line.phase !== 'hooked' && line.phase !== 'dropping') {
-        this.drawBait(ctx, bx, by + 2, G.baitKey);
+        this.drawBait(ctx, bx, by + 2, G.baitKey, G);
       }
 
-      // 咬钩警示圈
+      // 咬钩警示：黑白方波闪烁（原始两极色，昼夜双背景均醒目）+ 感叹号
       if (line.phase === 'bite') {
-        ctx.strokeStyle = `rgba(255, 82, 82, ${0.6 + Math.sin(line.biteTimer * 0.5) * 0.4})`;
-        ctx.lineWidth = 2.5;
+        const blink = ((performance.now() / 130) | 0) % 2 === 0;
+        const c = blink ? CFG.PALETTE.WHITE : CFG.PALETTE.INK;
+        ctx.strokeStyle = c;
+        ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(bx, by, 14, 0, Math.PI * 2);
+        ctx.arc(bx, by, 16 + Math.sin(line.biteTimer * 0.5) * 3, 0, Math.PI * 2);
         ctx.stroke();
+        this.px(ctx, bx - 2, by - 36, this.PX, 12, c);
+        this.px(ctx, bx - 2, by - 20, this.PX, this.PX, c);
       }
     } else if (state === 'playing') {
       // 未放饵时：提示箭头指向水面
@@ -740,7 +561,7 @@ const Sprites = {
       ctx.save();
       ctx.translate(ax, ay);
       ctx.rotate(0.6 + Math.sin(t) * 0.15);
-      ctx.fillStyle = 'rgba(255,255,255,.6)';
+      ctx.fillStyle = this.alphaTone('PAPER', G, .65);
       ctx.beginPath();
       ctx.moveTo(-7, -6); ctx.lineTo(5, 0); ctx.lineTo(-7, 6);
       ctx.closePath();
@@ -751,6 +572,8 @@ const Sprites = {
 
   // ---- 小龙虾 ----
   drawCrays(ctx, G) {
+    ctx.imageSmoothingEnabled = false;   // 像素风：最近邻采样，离开时恢复
+    const q = this.nightQ(G);
     for (const c of G.crays) {
       if (c.state === 'inHole') continue;   // 藏在洞里时不绘制
       const bob = Math.sin(c.wiggle) * 1.5;
@@ -759,141 +582,18 @@ const Sprites = {
       ctx.scale(c.dir, 1);
       const s = c.size;
       const sp = CFG.CRAY_SPECIES[c.species] || CFG.CRAY_SPECIES.red;
-      const shade = Math.max(0, Math.min(1, (s - 10) / 16));   // 0=小 1=大
       // 落地影子
       ctx.fillStyle = 'rgba(0,0,0,.18)';
       ctx.beginPath();
       ctx.ellipse(0, s * 0.9, s * 0.95, s * 0.28, 0, 0, Math.PI * 2);
       ctx.fill();
-      // 本体：优先 Twemoji 精灵（按种类染色，按大小调亮度）；未就绪时回退完整程序化龙虾
-      const tinted = this._crayTint(c.species);
-      if (tinted) {
-        const w = s * 2.3;
-        if (ctx.filter !== undefined) ctx.filter = `brightness(${(0.9 + (1 - shade) * 0.5).toFixed(2)})`;
+      // 本体：灰阶像素精灵（26x16 网格，全长≈s*2.3，锚点=几何中心，含昼夜档位）
+      const tex = this._crayTint(c.species, q);
+      if (tex) {
+        const w = s * 2.3, h = w * (16 / 26);
         ctx.globalAlpha = sp.special === 'soft' ? 0.9 : 1;   // 软皮壳半透
-        ctx.drawImage(tinted, -w / 2, -w / 2, w, w);
+        ctx.drawImage(tex, -w / 2, -h / 2, w, h);
         ctx.globalAlpha = 1;
-        ctx.filter = 'none';
-        // 特征覆盖层（叠在精灵上）
-        if (sp.special === 'old') {   // 老龙虾：背甲深色皱纹斑
-          ctx.fillStyle = 'rgba(50, 30, 12, .55)';
-          ctx.beginPath();
-          ctx.arc(-s * 0.12, -s * 0.3, s * 0.12, 0, Math.PI * 2);
-          ctx.arc(s * 0.18, s * 0.12, s * 0.09, 0, Math.PI * 2);
-          ctx.arc(-s * 0.3, s * 0.3, s * 0.08, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        if (sp.special === 'single') {   // 单钳龙虾：一侧补一道残肢
-          ctx.strokeStyle = 'rgba(60, 30, 20, .8)';
-          ctx.lineWidth = s * 0.14;
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.moveTo(s * 0.5, s * 0.55);
-          ctx.lineTo(s * 0.82, s * 0.68);
-          ctx.stroke();
-        }
-        if (sp.special === 'eggs') {   // 带籽母龙虾：尾下一簇卵
-          ctx.fillStyle = 'rgba(255, 160, 70, .95)';
-          for (let i = 0; i < 10; i++) {
-            const ex = -s * (0.45 + (i % 4) * 0.14);
-            const ey = s * (0.58 + Math.floor(i / 4) * 0.15);
-            ctx.beginPath();
-            ctx.arc(ex, ey, s * 0.09, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-        if (sp.special === 'soft') {   // 软皮龙虾：壳上一道高光
-          ctx.strokeStyle = 'rgba(255,255,255,.65)';
-          ctx.lineWidth = s * 0.12;
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.arc(0, 0, s * 0.9, Math.PI * 1.15, Math.PI * 1.85);
-          ctx.stroke();
-        }
-      } else {
-        // 兜底：完整程序化龙虾（素材未就绪/加载失败时仍能正常显示）
-        const tailCol = this.mixHex(sp.tail[0], sp.tail[1], shade);
-        const clawCol = this.mixHex(sp.claw[0], sp.claw[1], shade);
-        if (sp.special === 'soft') ctx.globalAlpha = 0.92;   // 软皮壳半透
-        const bodyG = ctx.createLinearGradient(0, -s, 0, s);
-        bodyG.addColorStop(0, this.mixHex(sp.body[0][0], sp.body[1][0], shade));
-        bodyG.addColorStop(0.6, this.mixHex(sp.body[0][1], sp.body[1][1], shade));
-        bodyG.addColorStop(1, this.mixHex(sp.body[0][2], sp.body[1][2], shade));
-        ctx.fillStyle = bodyG;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, s, s * 0.72, 0, 0, Math.PI * 2);
-        ctx.fill();
-        if (sp.special === 'old') {   // 老龙虾：背甲皱纹斑
-          ctx.fillStyle = 'rgba(50, 30, 12, .5)';
-          ctx.beginPath();
-          ctx.arc(-s * 0.08, -s * 0.22, s * 0.09, 0, Math.PI * 2);
-          ctx.arc(s * 0.16, s * 0.08, s * 0.07, 0, Math.PI * 2);
-          ctx.arc(-s * 0.24, s * 0.2, s * 0.06, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.fillStyle = tailCol;   // 尾巴
-        ctx.beginPath();
-        ctx.moveTo(-s * 0.7, -s * 0.2);
-        ctx.lineTo(-s * 1.3, -s * 0.55);
-        ctx.lineTo(-s * 1.3, s * 0.55);
-        ctx.lineTo(-s * 0.7, s * 0.2);
-        ctx.closePath();
-        ctx.fill();
-        if (sp.special === 'eggs') {   // 带籽母龙虾：尾下卵簇
-          ctx.fillStyle = 'rgba(255, 160, 70, .95)';
-          for (let i = 0; i < 10; i++) {
-            const ex = -s * (0.5 + (i % 4) * 0.14);
-            const ey = s * (0.52 + Math.floor(i / 4) * 0.15);
-            ctx.beginPath();
-            ctx.arc(ex, ey, s * 0.08, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-        ctx.strokeStyle = clawCol;   // 大钳子（单钳少一只）
-        ctx.lineWidth = s * 0.16;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(s * 0.6, -s * 0.35);
-        ctx.quadraticCurveTo(s * 1.05, -s * 0.7, s * 1.25, -s * 0.55);
-        ctx.quadraticCurveTo(s * 1.15, -s * 0.3, s * 0.95, -s * 0.2);
-        ctx.stroke();
-        if (sp.special === 'single') {
-          ctx.beginPath();
-          ctx.moveTo(s * 0.6, s * 0.35);
-          ctx.lineTo(s * 0.82, s * 0.5);
-          ctx.stroke();
-        } else {
-          ctx.beginPath();
-          ctx.moveTo(s * 0.6, s * 0.35);
-          ctx.quadraticCurveTo(s * 1.05, s * 0.7, s * 1.25, s * 0.55);
-          ctx.quadraticCurveTo(s * 1.15, s * 0.3, s * 0.95, s * 0.2);
-          ctx.stroke();
-        }
-        ctx.fillStyle = '#fff';   // 眼睛
-        ctx.beginPath();
-        ctx.arc(s * 0.45, -s * 0.22, s * 0.16, 0, Math.PI * 2);
-        ctx.arc(s * 0.45, s * 0.22, s * 0.16, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#111';
-        ctx.beginPath();
-        ctx.arc(s * 0.5 + s * 0.06, -s * 0.22, s * 0.07, 0, Math.PI * 2);
-        ctx.arc(s * 0.5 + s * 0.06, s * 0.22, s * 0.07, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = clawCol;   // 触须
-        ctx.lineWidth = 1.2;
-        ctx.beginPath();
-        ctx.moveTo(s * 0.4, -s * 0.4);
-        ctx.quadraticCurveTo(s * 0.9, -s * 0.9, s * 1.1, -s * 0.8);
-        ctx.moveTo(s * 0.4, s * 0.4);
-        ctx.quadraticCurveTo(s * 0.9, s * 0.9, s * 1.1, s * 0.8);
-        ctx.stroke();
-        if (sp.special === 'soft') {   // 软皮高光
-          ctx.strokeStyle = 'rgba(255,255,255,.55)';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(0, -s * 0.12, s * 0.78, Math.PI * 1.15, Math.PI * 1.85);
-          ctx.stroke();
-        }
       }
       // 被钓住的虾：悬挂摆动
       if (c.hooked) {
@@ -901,39 +601,47 @@ const Sprites = {
       }
       ctx.restore();
     }
+    ctx.imageSmoothingEnabled = true;
   },
 
-  // ---- 气泡 ----
+  // ---- 气泡：浅色圆环淡出 ----
   drawBubbles(ctx, G) {
     for (const b of G.bubbles) {
-      ctx.strokeStyle = `rgba(255,255,255,${0.6 * (b.life / 60)})`;
-      ctx.lineWidth = 1.2;
+      const fade = b.life / 60;
+      ctx.strokeStyle = this.alphaTone('PAPER', G, 0.7 * fade);
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.fillStyle = `rgba(255,255,255,${0.25 * (b.life / 60)})`;
+      ctx.fillStyle = this.alphaTone('WHITE', G, 0.2 * fade);
       ctx.fill();
     }
   },
 
-  // ---- 飘字 / 星星粒子 ----
+  // ---- 飘字 / 星星粒子：反色墨块字幕 + 灰阶星 ----
   drawParticles(ctx, G) {
     for (const p of G.particles) {
       const alpha = Math.min(1, p.life / 30);
       if (p.type === 'text') {
-        ctx.font = 'bold 20px "PingFang SC", sans-serif';
+        // 反色墨块：底=INK 面=PAPER（昼夜经 pal 同步反转，保持反色关系）
+        ctx.font = 'bold 15px "Courier New", monospace';
         ctx.textAlign = 'center';
-        ctx.fillStyle = `rgba(0,0,0,${alpha * 0.4})`;
-        ctx.fillText(p.text, p.x + 1, p.y + 1);
-        ctx.fillStyle = p.color;
+        ctx.textBaseline = 'middle';
+        const w = ctx.measureText(p.text).width + 16;
+        const h = 24;
         ctx.globalAlpha = alpha;
+        ctx.fillStyle = this.pal('INK', G);
+        ctx.fillRect(this.snap(p.x - w / 2), this.snap(p.y - h / 2), this.snap(w), h);
+        ctx.fillStyle = this.pal('PAPER', G);
         ctx.fillText(p.text, p.x, p.y);
         ctx.globalAlpha = 1;
       } else if (p.type === 'star') {
-        ctx.fillStyle = p.color;
+        // 星星：原始两极色（不随昼夜，保证可见）
+        ctx.fillStyle = /^#/.test(p.color) ? p.color : CFG.PALETTE[p.color] || CFG.PALETTE.WHITE;
         ctx.globalAlpha = alpha;
-        ctx.font = '14px sans-serif';
+        ctx.font = '13px monospace';
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
         ctx.fillText('✦', p.x, p.y);
         ctx.globalAlpha = 1;
       }

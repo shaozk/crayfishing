@@ -204,12 +204,12 @@
         G.bucketCrays.push({ size: h.size, species: h.species, t: 0 });
       }
       while (G.bucketCrays.length > 5) G.bucketCrays.shift();
-      G.particles.push({ type: 'text', x: CFG.BUCKET.x, y: CFG.BUCKET.y - 34, text: `+${hs.length} 🦞`, life: 60, color: '#ffd966' });
+      G.particles.push({ type: 'text', x: CFG.BUCKET.x, y: CFG.BUCKET.y - 34, text: `+${hs.length}`, life: 60, color: 'PAPER' });
       for (let i = 0; i < 8; i++) {
         G.particles.push({
           type: 'star', x: CFG.BUCKET.x, y: CFG.BUCKET.y - 10,
           vx: rand(-2, 2), vy: rand(-3, 0.5),
-          life: 40, color: i % 2 ? '#ffd966' : '#fff'
+          life: 40, color: i % 2 ? 'PAPER' : 'WHITE'
         });
       }
       G.crays = G.crays.filter(c => !c.hooked);

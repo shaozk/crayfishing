@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0c1526">
+<meta name="theme-color" content="#e8e8e8">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>钓龙虾</title>
@@ -11,7 +11,7 @@
 </head>
 <body>
   <div id="stage">
-    <button id="fsBtn" title="全屏">⛶</button>
+    <button id="fsBtn" title="全屏">全屏</button>
     <div id="lineSlider" class="hidden">
       <span class="lsLabel lsTop">长</span>
       <div id="lineSliderTrack"></div>
@@ -22,12 +22,12 @@
     </div>
     <div id="baitInfo" class="hidden"></div>
     <div id="bucketPanel" class="hidden">
-      <div class="bpHead">🪣 捕获统计<button id="bpClose">✕</button></div>
+      <div class="bpHead">捕获统计<button id="bpClose">✕</button></div>
       <div id="speciesList"></div>
       <div class="bpTotal">共 <span id="totalCount">0</span> 只</div>
     </div>
     <div id="overlay">
-      <h2>🦞 钓小龙虾</h2>
+      <h2>钓小龙虾</h2>
       <p class="ovSub">放饵 → 等虾咬钩 → 收杆 → 丢进桶里</p>
       <button id="startBtn">开始游戏</button>
     </div>
@@ -35,7 +35,7 @@
 
   <!-- 竖屏提示（触屏设备 + 竖屏时显示） -->
   <div id="rotateHint">
-    <div class="rhIcon">📱</div>
+    <div class="rhIcon"></div>
     <div class="rhText">请旋转手机到横屏游玩<br><small>Rotate your device</small></div>
   </div>
 
@@ -43,13 +43,13 @@
   <script type="text/template" id="tpl-species">
 {{#species}}
 <div class="row{{#zero}} zero{{/zero}}">
-  <span class="dot" style="background:{{color}}"></span>
+  {{#img}}<img class="sprite" src="{{img}}" alt="">{{/img}}{{^img}}<span class="dot"></span>{{/img}}
   <span class="name">{{name}}</span>
   <span class="num">×{{count}}</span>
 </div>
 {{/species}}
   </script>
-  <script type="text/template" id="tpl-bait-info">{{icon}} {{name}}：剩余 {{left}}/{{dur}}</script>
+  <script type="text/template" id="tpl-bait-info">{{name}} 剩余 {{left}}/{{dur}}</script>
 
   <!-- 资源文件：配置 → 状态 → 特效 → 系统 → Phaser → 输入/UI → 素材 → 场景 → 入口 -->
   <script src="js/config.js"></script>

@@ -15,9 +15,12 @@
   G.renderBucketPanel = function () {
     const species = Object.entries(CFG.CRAY_SPECIES).map(([key, sp]) => {
       const n = G.caughtCounts[key] || 0;
+      // 像素精灵缩略图（dataURL；Assets 不可用时模板回退到灰点）
+      let img = '';
+      try { img = Assets.cray(key, 0).toDataURL(); } catch (e) { /* 留空走兜底 */ }
       return {
         name: sp.name,
-        color: Sprites.rgb(Sprites.mix3(Sprites.hex(sp.body[0][1]), Sprites.hex(sp.body[1][1]), 0.4)),
+        img,
         count: n,
         zero: n === 0
       };
@@ -86,7 +89,6 @@
   G.showBaitInfo = function (key) {
     const b = CFG.BAITS[key];
     baitInfoEl.innerHTML = Mustache.render(tplBaitInfo, {
-      icon: b.icon,
       name: b.name,
       left: Math.max(0, Math.round(G.baitDura[key])),
       dur: b.dur

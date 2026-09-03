@@ -6,19 +6,13 @@
 
 - **pi**（AI 编程代理，@earendil-works/pi-coding-agent，模型 deepseek-v4-pro）——参与代码实现、重构、调试、素材集成与文档撰写。
 
-## Twemoji（本游戏实体精灵）
+## 游戏内像素美术
 
-`assets/` 下的 PNG 素材来自 **Twemoji**（Twitter 表情符号集）v14.0.2：
+全部实体（小龙虾 7 种、青蛙/田螺/猪肝饵料、水桶、饵料盒）均为**程序化黑白像素绘制**，
+由代码按 `CFG.PALETTE` 灰阶调色板生成，无外部图片依赖。
 
-- `crayfish.png` — 🦞 龙虾（游戏内按 7 种龙虾分别染色）
-- `frog.png` — 🐸 青蛙（小青蛙/大青蛙饵料）
-- `snail.png` — 🐌 田螺（小田螺/大田螺饵料）
-- `meat.png` — 🥩 肉（猪肝饵料）
-- `bucket.png` — 🪣 水桶
-
-- **来源**：https://github.com/twitter/twemoji
-- **许可**：CC-BY 4.0（https://creativecommons.org/licenses/by/4.0/）
-- **使用方式**：各精灵在画布上按需缩放/按种类染色（`js/assets.js`）
+历史版本曾使用 **Twemoji**（CC-BY 4.0，https://github.com/twitter/twemoji）的 emoji 素材，
+现已被像素风替换；`assets/` 目录下的旧 PNG 不再被加载，仅作历史保留。
 
 ## 软件库
 
