@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>方案 A「剪影·留白」静态打样</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #e8e8e8; color: #1a1a1a;
+    font-family: "Courier New", "PingFang SC", monospace;
+    padding: 28px 32px 48px;
+  }
+  header { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-bottom: 22px; }
+  h1 { font-size: 22px; letter-spacing: 6px; }
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; }
+  button {
+    font-family: inherit; font-size: 13px; font-weight: 700; letter-spacing: 1px;
+    padding: 8px 16px; border: 3px solid #1a1a1a; background: #1a1a1a; color: #e8e8e8;
+    cursor: pointer;
+  }
+  button:hover { background: #e8e8e8; color: #1a1a1a; }
+  .row { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 22px; }
+  figure { flex: 1 1 420px; max-width: 640px; }
+  figure canvas { width: 100%; display: block; border: 3px solid #1a1a1a; image-rendering: pixelated; background: #e8e8e8; }
+  figcaption { font-size: 13px; font-weight: 700; letter-spacing: 2px; padding: 8px 2px 0; }
+  figcaption small { font-weight: 400; letter-spacing: 0; opacity: .65; }
+  .sheet { margin-bottom: 24px; }
+  .sheet canvas { width: 100%; display: block; border: 3px solid #1a1a1a; image-rendering: pixelated; }
+  section.lists { border-top: 3px solid #1a1a1a; padding-top: 18px; display: flex; gap: 40px; flex-wrap: wrap; }
+  table { border-collapse: collapse; font-size: 12.5px; }
+  th, td { border: 2px solid #1a1a1a; padding: 4px 10px; text-align: left; }
+  th { background: #1a1a1a; color: #e8e8e8; letter-spacing: 1px; }
+  ul { font-size: 12.5px; line-height: 2; list-style: none; }
+  ul::before { content: "已删除（对照旧版）"; display: block; font-weight: 700; letter-spacing: 1px; margin-bottom: 4px; }
+  .note { font-size: 12px; opacity: .6; margin-top: 18px; line-height: 1.9; }
+</style>
+</head>
+<body>
+<header>
+  <h1>方案 A · 剪影留白</h1>
+  <div class="controls">
+    <button id="btnDay">昼夜：昼</button>
+    <button id="btnBase">水下底：纯纸</button>
+    <button id="btnImm">浸没：50%</button>
+  </div>
+</header>
+
+<div class="row">
+  <figure>
+    <canvas id="c1" width="900" height="560"></canvas>
+    <figcaption>① 等饵咬钩 <small>—— 线加粗 + 端点方块闪烁</small></figcaption>
+  </figure>
+  <figure>
+    <canvas id="c2" width="900" height="560"></canvas>
+    <figcaption>② 出水瞬间 <small>—— 虾由 50% 灰变纯墨（全场唯一戏剧时刻）</small></figcaption>
+  </figure>
+  <figure>
+    <canvas id="c3" width="900" height="560"></canvas>
+    <figcaption>③ 捕获圆环 <small>—— 桶就绪虚线圆 + 入桶圆环扩散</small></figcaption>
+  </figure>
+</div>
+
+<div class="sheet">
+  <figure>
+    <canvas id="c4" width="900" height="150"></canvas>
+    <figcaption>④ 物种图鉴 <small>—— 同一剪影，7 种镂空图案区分</small></figcaption>
+  </figure>
+</div>
+
+<section class="lists">
+  <table>
+    <tr><th>元素</th><th>定义</th><th>数量</th></tr>
+    <tr><td>水位线</td><td>2px 墨横线（仅水面段）</td><td>1</td></tr>
+    <tr><td>岸台线</td><td>2px 墨横线 + 竖向短接线</td><td>2</td></tr>
+    <tr><td>日 / 月</td><td>8×8 方块，唯一天体</td><td>1</td></tr>
+    <tr><td>钓鱼人</td><td>纯墨几何剪影（无内部细节）</td><td>1</td></tr>
+    <tr><td>钓线 + 饵</td><td>1px 线 + 方块饵；水下 50% 墨</td><td>1 组</td></tr>
+    <tr><td>小龙虾</td><td>26×16 两色剪影（墨身 + 纸镂空）</td><td>≤24</td></tr>
+    <tr><td>荷叶</td><td>缺口圆（纸填充 + 墨描边）</td><td>4</td></tr>
+    <tr><td>洞</td><td>墨实心椭圆（水下 50%）</td><td>3</td></tr>
+    <tr><td>桶</td><td>墨剪影梯形 + 就绪虚线圆</td><td>1</td></tr>
+    <tr><td>HUD</td><td>左上等宽分数数字</td><td>1</td></tr>
+  </table>
+  <ul>
+    <li>远山 · 云 ×3 · 草叶 ×26 · 灌木 · 岸石 ×4</li>
+    <li>水草 ×14 · 水底泥带 · 底石 ×10</li>
+    <li>全部抖动纹理 · 波纹行 ×6 · 水面高光 ×5</li>
+    <li>星空 ×48 · 粒子星 ×8 · 粒子文字块</li>
+    <li>桶口探头虾群 · 桶呼吸光晕 · 咬钩警告圈/感叹号</li>
+    <li>帽/眼/腰带等人物内部细节 · 荷叶叶脉</li>
+  </ul>
+</section>
+<p class="note">
+  说明：打样中结构线画 2px（浏览器缩放后可见），实装可回调 1px；「饵料盒」为交互入口，实装为岸边小方框 + 点击提示，不参与画面构图；昼夜为全画面反色（与游戏内 tone() 4 档量化一致，此处直接切换两极）。
+</p>
+
+<script>
+'use strict';
+/* ===== 调色板（昼夜两极互换，等价游戏内 tone(q=1)） ===== */
+const THEME = {
+  day:   { INK: '#1a1a1a', PAPER: '#e8e8e8', WHITE: '#ffffff' },
+  night: { INK: '#e5e5e5', PAPER: '#171717', WHITE: '#000000' },
+};
+
+/* ===== 26×16 精灵网格（与 js/config.js CFG.CRAY_SPRITES 同源冻结数据） ===== */
+const SPR = {
+red: [
+'..........................',
+'.......................k..',
+'k........k.k.k.k.....kkdkk',
+'kk.......k.k.k.k.....kddk.',
+'.kk......k.k.kkk....kkkdkk',
+'..kk...kkmkmkmdmkkkk...k..',
+'kkllkkklllkllllllllk......',
+'klllllklllklllllllllkk....',
+'klllllklllklllllllllkk....',
+'kkllkkklllkllllllllk......',
+'..kk...kkmkmkmdmkkkkk..k..',
+'.kk......k.k.kkk.....kkdkk',
+'kk.......k.k.k.k.....kddk.',
+'k........k.k.k.k.....kkdkk',
+'.......................k..',
+'..........................',
+],
+old: [
+'..........................',
+'.......................k..',
+'k........k.k.k.k.....kkkkk',
+'kk.......k.k.k.k.....kkkk.',
+'.kk......k.k.kkk....kkkkkk',
+'..kk...kkdkdkdkdkkkk...k..',
+'kkmmkkkmmmkmkmmmkmmk......',
+'kmmmmmkmmmkmmmmmmmmmkk....',
+'kmmmmmkmmmkmmmkmmmmmkk....',
+'kkmmkkkmmmkkmmmkmmmk......',
+'..kk...kkdkdkdkdkkkkk..k..',
+'.kk......k.k.kkk.....kkkkk',
+'kk.......k.k.k.k.....kkkk.',
+'k........k.k.k.k.....kkkkk',
+'.......................k..',
+'..........................',
+],
+single: [
+'..........................',
+'.......................k..',
+'k........k.k.k.k.....kkdkk',
+'kk.......k.k.k.k.....kddk.',
+'.kk......k.k.kkk....kkkdkk',
+'..kk...kkmkmkmdmkkkk...k..',
+'kkllkkklllkllllllllk......',
+'klllllklllklllllllllkk....',
+'klllllklllklllllllllkk....',
+'kkllkkklllkllllllll.......',
+'..kk...kkmkmkmdmkkk.......',
+'.kk......k.k.kkk...kk.....',
+'kk.......k.k.k.k..........',
+'k........k.k.k.k..........',
+'..........................',
+'..........................',
+],
+soft: [
+'..........................',
+'.......................k..',
+'k........k.k.k.k.....kkmkk',
+'kk.......k.k.k.k.....kmmk.',
+'.kk......k.k.kkk....kkkmkk',
+'..kk...kklklwwwlkkkk...k..',
+'kkppkkkpppkppppppppk......',
+'kpppppkpppkpppppppppkk....',
+'kpppppkpppkpppppppppkk....',
+'kkppkkkpppkppppppppk......',
+'..kk...kklklklmlkkkkk..k..',
+'.kk......k.k.kkk.....kkmkk',
+'kk.......k.k.k.k.....kmmk.',
+'k........k.k.k.k.....kkmkk',
+'.......................k..',
+'..........................',
+],
+blue: [
+'..........................',
+'.......................k..',
+'k........k.k.k.k.....kkdkk',
+'kk.......k.k.k.k.....kddk.',
+'.kk......k.k.kkk....kkkdkk',
+'..kk...kkdkdkdddkkkk...k..',
+'kkllkkklllkllllllllk......',
+'klllllklllklllllllllkk....',
+'klllllklllklllllllllkk....',
+'kkddkkkdddkddddddddk......',
+'..kk...kkmkmkmdmkkkkk..k..',
+'.kk......k.k.kkk.....kkdkk',
+'kk.......k.k.k.k.....kddk.',
+'k........k.k.k.k.....kkdkk',
+'.......................k..',
+'..........................',
+],
+black: [
+'..........................',
+'.......................l..',
+'l........l.l.l.l.....llkll',
+'ll.......l.l.l.l.....lkkl.',
+'.ll......l.l.lll....lllkll',
+'..ll...llklklkkkllll...l..',
+'llddlllddddddddddddl......',
+'ldddddddddddddddddddll....',
+'ldddddddddddddddddddll....',
+'llddlllddddddddddddl......',
+'..ll...llklklkkklllll..l..',
+'.ll......l.l.lll.....llkll',
+'ll.......l.l.l.l.....lkkl.',
+'l........l.l.l.l.....llkll',
+'.......................l..',
+'..........................',
+],
+eggs: [
+'..........................',
+'.......................k..',
+'k........k.k.k.k.....kkdkk',
+'kk.......k.k.k.k.....kddk.',
+'.kk......k.k.kkk....kkkdkk',
+'..kk...kkmkmkmdmkkkk...k..',
+'kkllkkklllkllllllllk......',
+'klllllklllklllllllllkk....',
+'klllllklllklllllllllkk....',
+'kkllkkklllkllllllllk......',
+'.pkk...kkmkmkmdmkkkkk..k..',
+'.pkp.....k.k.kkk.....kkdkk',
+'pkp.p....k.k.k.k.....kddk.',
+'k.p......k.k.k.k.....kkdkk',
+'.......................k..',
+'..........................',
+],
+};
+
+/* ===== 两色剪影规则：true=纸色镂空 / false=墨色剪影（经 verify-2color.js 验证 7 种互异） ===== */
+const OLD_SPOTS = [[12, 6], [15, 9], [16, 6], [11, 9], [14, 8]];
+const RULES = {
+  red:    () => false,
+  old:    (c, x, y) => OLD_SPOTS.some(([sx, sy]) => sx === x && sy === y),
+  single: () => false,
+  soft:   c => c === 'p' || c === 'w' || c === 'l',        // 空壳：体腔镂空
+  blue:   (c, x, y) => (y === 5 || y === 9) && c !== 'k',  // 双横纹
+  black:  c => c === 'l',                                   // 墨身纸描边
+  eggs:   c => c === 'p',                                   // 卵簇镂空
+};
+const NAMES = { red: '红龙虾', old: '老龙虾', single: '单钳龙虾', soft: '软皮龙虾', blue: '青龙虾', black: '黑龙虾', eggs: '带籽母虾' };
+
+let baked = {};
+function bakeAll(C) {
+  for (const k of Object.keys(SPR)) {
+    const c = document.createElement('canvas');
+    c.width = 26; c.height = 16;
+    const g = c.getContext('2d');
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 26; x++) {
+      const ch = SPR[k][y][x];
+      if (ch === '.') continue;
+      g.fillStyle = RULES[k](ch, x, y) ? C.PAPER : C.INK;
+      g.fillRect(x, y, 1, 1);
+    }
+    baked[k] = c;
+  }
+}
+
+/* ===== 基础笔刷 ===== */
+function ln(ctx, x1, y1, x2, y2, w, color, cap) {
+  ctx.strokeStyle = color; ctx.lineWidth = w; ctx.lineCap = cap || 'square';
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+}
+function cray(ctx, key, x, y, w, alpha, rot, dir) {
+  const t = baked[key], h = w * 16 / 26;
+  ctx.save();
+  ctx.translate(x, y);
+  if (rot) ctx.rotate(rot);
+  ctx.scale(dir || 1, 1);
+  ctx.globalAlpha = alpha;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(t, -w / 2, -h / 2, w, h);
+  ctx.restore();
+}
+function ellipseFill(ctx, x, y, rx, ry) {
+  ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+}
+function leaf(ctx, cx, cy, r, C) {
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, Math.PI * 0.22, Math.PI * 1.88);   // 右下缺口
+  ctx.closePath();
+  ctx.fillStyle = C.PAPER; ctx.fill();
+  ctx.strokeStyle = C.INK; ctx.lineWidth = 2; ctx.stroke();
+}
+function hud(ctx, C, n) {
+  ctx.fillStyle = C.INK; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.font = 'bold 11px "Courier New", monospace';
+  ctx.fillText('SCORE', 24, 20);
+  ctx.font = 'bold 34px "Courier New", monospace';
+  ctx.fillText(n, 24, 34);
+}
+function player(ctx, C) {
+  const x = 134, g = 266;                 // 中心 / 地面
+  ctx.fillStyle = C.INK;
+  ctx.fillRect(x - 6, g - 20, 5, 20);     // 腿
+  ctx.fillRect(x + 2, g - 20, 5, 20);
+  ctx.fillRect(x - 10, g - 44, 21, 25);   // 身体
+  ctx.fillRect(x - 7, g - 58, 14, 14);    // 头
+  ln(ctx, x + 6, g - 36, 150, 198, 5, C.INK, 'round');   // 手臂 → 竿根
+}
+
+/* ===== 场景（W900 H560 水位线260 岸缘270，与游戏 CFG 同坐标系） ===== */
+function drawScene(ctx, C, o) {
+  // 天空（唯一底色）+ 天体
+  ctx.fillStyle = C.PAPER; ctx.fillRect(0, 0, 900, 560);
+  ctx.fillStyle = o.night ? C.INK : C.WHITE;
+  if (o.night) ctx.fillRect(616, 66, 8, 8);          // 月（反色后=深底浅块）
+  else ctx.fillRect(696, 76, 8, 8);                  // 日
+  // 水下底（变体：+4% 墨）
+  if (o.base) {
+    ctx.globalAlpha = 0.04; ctx.fillStyle = C.INK;
+    ctx.fillRect(270, 260, 630, 300);
+    ctx.globalAlpha = 1;
+  }
+  // 结构线：水位线 + 岸台
+  ln(ctx, 270, 260, 900, 260, 2, C.INK);
+  ln(ctx, 60, 266, 270, 266, 2, C.INK);
+  ln(ctx, 270, 260, 270, 266, 2, C.INK);
+  // 荷叶（缺口圆）
+  leaf(ctx, 380, 262, 24, C);
+  leaf(ctx, 540, 258, 28, C);
+  leaf(ctx, 700, 263, 22, C);
+  // 洞（水下 → 浸没墨）
+  ctx.globalAlpha = o.imm; ctx.fillStyle = C.INK;
+  ellipseFill(ctx, 430, 522, 13, 5);
+  ellipseFill(ctx, 590, 524, 13, 5);
+  ellipseFill(ctx, 750, 520, 13, 5);
+  ctx.globalAlpha = 1;
+  // 桶（墨剪影梯形；就绪虚线圆与圆环由状态层画）
+  ctx.fillStyle = C.INK;
+  ctx.beginPath();
+  ctx.moveTo(221, 240); ctx.lineTo(251, 240);
+  ctx.lineTo(247, 266); ctx.lineTo(225, 266);
+  ctx.closePath(); ctx.fill();
+  // 玩家（含手臂）
+  player(ctx, C);
+
+  /* ---- 状态层 ---- */
+  if (o.state === 'bite') {
+    ln(ctx, 150, 198, 212, 150, 2, C.INK);                       // 竿
+    ln(ctx, 212, 150, 520, 502, 2, C.INK);                       // 整线加粗（咬钩信号）
+    ctx.globalAlpha = o.imm;
+    ln(ctx, 308, 260, 520, 502, 2, C.INK);                       // 水下段浸没
+    ctx.fillStyle = C.INK; ctx.fillRect(516, 498, 8, 8);         // 饵（水下）
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = C.WHITE; ctx.fillRect(513, 495, 14, 14);     // 闪烁方块（另一极色）
+    ctx.strokeStyle = C.INK; ctx.lineWidth = 2;
+    ctx.strokeRect(513, 495, 14, 14);
+    cray(ctx, 'red', 430, 470, 52, o.imm, 0, 1);
+    cray(ctx, 'blue', 610, 485, 44, o.imm, 0, -1);
+    cray(ctx, 'eggs', 370, 512, 56, o.imm, 0, 1);
+    cray(ctx, 'old', 745, 496, 48, o.imm, 0, -1);
+    hud(ctx, C, '02');
+  } else if (o.state === 'reel') {
+    ctx.strokeStyle = C.INK; ctx.lineWidth = 2; ctx.lineCap = 'square';
+    ctx.beginPath(); ctx.moveTo(150, 198);                       // 弯竿
+    ctx.quadraticCurveTo(196, 150, 238, 140); ctx.stroke();
+    ln(ctx, 238, 140, 408, 176, 2, C.INK);                       // 绷紧的线
+    cray(ctx, 'red', 408, 176, 66, 1, -0.12, 1);                 // 出水虾：纯墨！
+    cray(ctx, 'soft', 640, 330, 40, o.imm, 0, -1);
+    cray(ctx, 'blue', 350, 410, 48, o.imm, 0, 1);
+    hud(ctx, C, '03');
+  } else {  // catch
+    ln(ctx, 150, 198, 215, 158, 2, C.INK);                       // 竿
+    ln(ctx, 215, 158, 224, 235, 1, C.INK);                       // 垂线
+    ctx.fillStyle = C.INK; ctx.fillRect(222, 233, 4, 4);         // 空钩
+    ctx.setLineDash([4, 4]);                                     // 桶就绪虚线圆
+    ctx.strokeStyle = C.INK; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(236, 236, 15, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.lineWidth = 3;                                           // 入桶圆环（定格）
+    ctx.beginPath(); ctx.arc(236, 238, 32, 0, Math.PI * 2); ctx.stroke();
+    cray(ctx, 'single', 700, 460, 50, o.imm, 0, -1);
+    cray(ctx, 'black', 500, 500, 54, o.imm, 0, 1);
+    hud(ctx, C, '04');
+  }
+}
+
+/* ===== 物种图鉴条 ===== */
+function drawSheet(ctx, C) {
+  ctx.fillStyle = C.PAPER; ctx.fillRect(0, 0, 900, 150);
+  const keys = Object.keys(SPR);
+  keys.forEach((k, i) => {
+    cray(ctx, k, 44 + i * 124, 40, 104, 1, 0, 1);
+    ctx.fillStyle = C.INK; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.font = 'bold 12px "Courier New", monospace';
+    ctx.fillText(NAMES[k], 44 + i * 124, 82);
+  });
+}
+
+/* ===== 控制与渲染 ===== */
+const state = { night: false, base: false, imm: 0.5 };
+const $ = id => document.getElementById(id);
+
+function renderAll() {
+  const C = state.night ? THEME.night : THEME.day;
+  bakeAll(C);
+  for (const [id, st] of [['c1', 'bite'], ['c2', 'reel'], ['c3', 'catch']]) {
+    const ctx = $(id).getContext('2d');
+    drawScene(ctx, C, { state: st, imm: state.imm, base: state.base, night: state.night });
+  }
+  drawSheet($('c4').getContext('2d'), C);
+}
+
+$('btnDay').onclick = e => { state.night = !state.night; e.target.textContent = state.night ? '昼夜：夜' : '昼夜：昼'; renderAll(); };
+$('btnBase').onclick = e => { state.base = !state.base; e.target.textContent = state.base ? '水下底：+4%墨' : '水下底：纯纸'; renderAll(); };
+$('btnImm').onclick = e => { state.imm = state.imm === 0.5 ? 0.6 : 0.5; e.target.textContent = '浸没：' + Math.round(state.imm * 100) + '%'; renderAll(); };
+
+renderAll();
+</script>
+</body>
+</html>

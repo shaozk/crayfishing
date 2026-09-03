@@ -73,26 +73,22 @@ class GameScene extends Phaser.Scene {
     this.drawFrame();
   }
 
-  // 把场景全部绘制进画布纹理
+  // 把场景全部绘制进画布纹理（剪影·留白：仅保留元素预算内的绘制层）
   drawFrame() {
     const ctx = this.sceneTex.getContext();
     ctx.clearRect(0, 0, CFG.W, CFG.H);
-    Sprites.drawSky(ctx, Game);
-    Sprites.drawCelestial(ctx, Game);   // 日月星辰为背景层（画在最底层，不遮挡角色）
-    Sprites.drawShoreAndWater(ctx, Game);
-    Sprites.drawPondDetails(ctx, Game);
+    Sprites.drawSky(ctx, Game);              // 纸底 + 日/月方块（含可选水下轻底）
+    Sprites.drawShoreAndWater(ctx, Game);    // 结构线：水位线/岸台/岸缘
+    Sprites.drawLeaves(ctx, Game);
     Sprites.drawHoles(ctx, Game);
     Sprites.drawPlayer(ctx, Game);
     Sprites.drawBucket(ctx, Game);
     Sprites.drawBaitBox(ctx, Game);
-    Sprites.drawWaterSurface(ctx, Game);
-    Sprites.drawLeaves(ctx, Game);
     Sprites.drawRipples(ctx, Game);
-    Sprites.drawLine(ctx, Game);
+    Sprites.drawLine(ctx, Game);             // 竿/线/饵/咬钩信号
     Sprites.drawCrays(ctx, Game);
-    Sprites.drawBubbles(ctx, Game);
-    Sprites.drawParticles(ctx, Game);
-    Sprites.drawLighting(ctx, Game);    // 全局光照 + 暗角（evenodd 抠掉天体区域）
+    Sprites.drawParticles(ctx, Game);        // 捕获圆环
+    Sprites.drawHUD(ctx, Game);
     this.sceneTex.refresh();
   }
 }
